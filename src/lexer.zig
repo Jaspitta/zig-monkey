@@ -43,4 +43,16 @@ pub const Lexer = struct {
         self.readChar();
         return token;
     }
+
+    pub fn readIdentifier(self: *Self) []u8 {
+        const start_pos = self.position;
+        while (isLetter(self.ch)) {
+            self.readChar();
+        }
+        return self.input[start_pos..self.position];
+    }
+
+    fn isLetter(character: u8) bool {
+        return (character >= 65 and character <= 90) or (character >= 97 and character <= 122);
+    }
 };
