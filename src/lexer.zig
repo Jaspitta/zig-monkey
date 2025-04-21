@@ -27,7 +27,7 @@ pub const Lexer = struct {
         self.read_position += 1;
     }
 
-    pub fn nextToken(self: *Self) tkz.Token {
+    pub fn nextToken(self: *Self) tkz.unimplementedTokenError!tkz.Token {
         const token = switch (self.ch) {
             '=' => tkz.Token{ .assign = self.ch },
             ';' => tkz.Token{ .semicolon = self.ch },
@@ -38,13 +38,19 @@ pub const Lexer = struct {
             '{' => tkz.Token{ .lbrace = self.ch },
             '}' => tkz.Token{ .rbrace = self.ch },
             0 => tkz.Token{ .eof = self.ch },
-            else => undefined,
+            else => {
+                if (isLetter(self.ch)) {
+                    return tkz.Token{ .ident = self.readIdentifier() };
+                } else {
+                    return tkz.Token{ .illegal = self.ch };
+                }
+            },
         };
         self.readChar();
         return token;
     }
 
-    pub fn readIdentifier(self: *Self) []u8 {
+    pub fn readIdentifier(self: *Self) []const u8 {
         const start_pos = self.position;
         while (isLetter(self.ch)) {
             self.readChar();
@@ -53,6 +59,6 @@ pub const Lexer = struct {
     }
 
     fn isLetter(character: u8) bool {
-        return (character >= 65 and character <= 90) or (character >= 97 and character <= 122);
+        return (character >= 65 and character <= 90) or (character >= 97 and character <= 122) or (character == '_');
     }
 };

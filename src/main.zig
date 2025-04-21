@@ -27,14 +27,14 @@ test {
     for (expected) |exp| {
         const token = lexer.nextToken();
         try switch (exp) {
-            .assign => std.testing.expect(token.assign == exp.assign),
-            .plus => std.testing.expect(token.plus == exp.plus),
-            .lparent => std.testing.expect(token.lparent == exp.lparent),
-            .rparent => std.testing.expect(token.rparent == exp.rparent),
-            .lbrace => std.testing.expect(token.lbrace == exp.lbrace),
-            .rbrace => std.testing.expect(token.rbrace == exp.rbrace),
-            .comma => std.testing.expect(token.comma == exp.comma),
-            .semicolon => std.testing.expect(token.semicolon == exp.semicolon),
+            .assign => std.testing.expect((try token).assign == exp.assign),
+            .plus => std.testing.expect((try token).plus == exp.plus),
+            .lparent => std.testing.expect((try token).lparent == exp.lparent),
+            .rparent => std.testing.expect((try token).rparent == exp.rparent),
+            .lbrace => std.testing.expect((try token).lbrace == exp.lbrace),
+            .rbrace => std.testing.expect((try token).rbrace == exp.rbrace),
+            .comma => std.testing.expect((try token).comma == exp.comma),
+            .semicolon => std.testing.expect((try token).semicolon == exp.semicolon),
             else => return,
         };
     }
