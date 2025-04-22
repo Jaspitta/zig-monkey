@@ -7,6 +7,12 @@ pub const TokenTag = enum {
     int,
     assign,
     plus,
+    minus,
+    bang,
+    asterisk,
+    slash,
+    lt,
+    gt,
     comma,
     semicolon,
     lparent,
@@ -15,6 +21,13 @@ pub const TokenTag = enum {
     rbrace,
     function,
     let,
+    @"if",
+    @"return",
+    @"else",
+    true,
+    false,
+    equal,
+    not_equal,
 };
 
 pub const Token = union(TokenTag) {
@@ -24,6 +37,12 @@ pub const Token = union(TokenTag) {
     int: []const u8,
     assign: u8,
     plus: u8,
+    minus: u8,
+    bang: u8,
+    asterisk: u8,
+    slash: u8,
+    lt: u8,
+    gt: u8,
     comma: u8,
     semicolon: u8,
     lparent: u8,
@@ -32,6 +51,13 @@ pub const Token = union(TokenTag) {
     rbrace: u8,
     function: []const u8,
     let: []const u8,
+    @"if": []const u8,
+    @"return": []const u8,
+    @"else": []const u8,
+    true: []const u8,
+    false: []const u8,
+    equal: []const u8,
+    not_equal: []const u8,
 };
 
 pub const unimplementedTokenError = error{
@@ -45,6 +71,11 @@ pub fn identifierToToken(identifier: []const u8) unimplementedTokenError!Token {
     return switch (code) {
         325 => Token{ .let = identifier },
         870, 212 => Token{ .function = identifier },
+        207 => Token{ .@"if" = identifier },
+        672 => Token{ .@"return" = identifier },
+        425 => Token{ .@"else" = identifier },
+        448 => Token{ .true = identifier },
+        523 => Token{ .false = identifier },
         else => Token{ .ident = identifier },
     };
 }
@@ -58,7 +89,7 @@ fn strToSum(str: []const u8) u32 {
 }
 
 test {
-    const identifiers: [3][]const u8 = .{ "let", "function", "fn" };
+    const identifiers = [_][]const u8{ "let", "function", "fn", "if", "return", "else", "true", "false" };
     var codes: [identifiers.len]u32 = undefined;
     for (identifiers, 0..) |identifier, i| {
         codes[i] = strToSum(identifier);

@@ -10,35 +10,100 @@ pub fn main() !void {
     std.debug.print("main running \n", .{});
 }
 
-test {
-    const input = "=+(){},;";
-
-    var expected: [input.len]tkz.Token = undefined;
-    expected[0] = tkz.Token{ .assign = '=' };
-    expected[1] = tkz.Token{ .plus = '+' };
-    expected[2] = tkz.Token{ .lparent = '(' };
-    expected[3] = tkz.Token{ .rparent = ')' };
-    expected[4] = tkz.Token{ .lbrace = '{' };
-    expected[5] = tkz.Token{ .rbrace = '}' };
-    expected[6] = tkz.Token{ .comma = ',' };
-    expected[7] = tkz.Token{ .semicolon = ';' };
-
-    var lexer = lx.Lexer.init(input);
-    for (expected) |exp| {
-        const token = lexer.nextToken();
-        try switch (exp) {
-            .assign => std.testing.expect((try token).assign == exp.assign),
-            .plus => std.testing.expect((try token).plus == exp.plus),
-            .lparent => std.testing.expect((try token).lparent == exp.lparent),
-            .rparent => std.testing.expect((try token).rparent == exp.rparent),
-            .lbrace => std.testing.expect((try token).lbrace == exp.lbrace),
-            .rbrace => std.testing.expect((try token).rbrace == exp.rbrace),
-            .comma => std.testing.expect((try token).comma == exp.comma),
-            .semicolon => std.testing.expect((try token).semicolon == exp.semicolon),
-            else => return,
-        };
-    }
-}
+// test {
+//     const input =
+//         \\let five = 5;
+//         \\let ten = 10;
+//         \\let add = fn(x, y) {
+//         \\  x + y;
+//         \\};
+//         \\
+//         \\let result = add(five, ten);
+//         \\!-/*5;
+//         \\5 < 10 > 5;
+//         \\if (5 < 10) {
+//         \\  return true;
+//         \\} else {
+//         \\  return false;
+//         \\}
+//         \\
+//     ;
+//
+//     var expected: [66]tkz.Token = undefined;
+//     expected[0] = tkz.Token{ .let = "let" };
+//     expected[1] = tkz.Token{ .ident = "five" };
+//     expected[2] = tkz.Token{ .assign = '=' };
+//     expected[3] = tkz.Token{ .int = "5" };
+//     expected[4] = tkz.Token{ .semicolon = ';' };
+//     expected[5] = tkz.Token{ .let = "let" };
+//     expected[6] = tkz.Token{ .ident = "ten" };
+//     expected[7] = tkz.Token{ .assign = '=' };
+//     expected[8] = tkz.Token{ .int = "10" };
+//     expected[9] = tkz.Token{ .semicolon = ';' };
+//     expected[10] = tkz.Token{ .let = "let" };
+//     expected[11] = tkz.Token{ .ident = "add" };
+//     expected[12] = tkz.Token{ .assign = '=' };
+//     expected[13] = tkz.Token{ .function = "fn" };
+//     expected[14] = tkz.Token{ .lparent = '(' };
+//     expected[15] = tkz.Token{ .ident = "x" };
+//     expected[16] = tkz.Token{ .comma = ',' };
+//     expected[17] = tkz.Token{ .ident = "y" };
+//     expected[18] = tkz.Token{ .rparent = ')' };
+//     expected[19] = tkz.Token{ .lbrace = '{' };
+//     expected[20] = tkz.Token{ .ident = "x" };
+//     expected[21] = tkz.Token{ .plus = '+' };
+//     expected[22] = tkz.Token{ .ident = "y" };
+//     expected[23] = tkz.Token{ .semicolon = ';' };
+//     expected[24] = tkz.Token{ .rbrace = '}' };
+//     expected[25] = tkz.Token{ .semicolon = ';' };
+//     expected[26] = tkz.Token{ .let = "let" };
+//     expected[27] = tkz.Token{ .ident = "result" };
+//     expected[28] = tkz.Token{ .assign = '=' };
+//     expected[29] = tkz.Token{ .ident = "add" };
+//     expected[30] = tkz.Token{ .lparent = '(' };
+//     expected[31] = tkz.Token{ .ident = "five" };
+//     expected[32] = tkz.Token{ .comma = ',' };
+//     expected[33] = tkz.Token{ .ident = "ten" };
+//     expected[34] = tkz.Token{ .rparent = ')' };
+//     expected[35] = tkz.Token{ .semicolon = ';' };
+//     expected[36] = tkz.Token{ .bang = '!' };
+//     expected[37] = tkz.Token{ .minus = '-' };
+//     expected[38] = tkz.Token{ .slash = '/' };
+//     expected[39] = tkz.Token{ .asterisk = '*' };
+//     expected[40] = tkz.Token{ .int = "5" };
+//     expected[41] = tkz.Token{ .semicolon = ';' };
+//     expected[42] = tkz.Token{ .int = "5" };
+//     expected[43] = tkz.Token{ .lt = '<' };
+//     expected[44] = tkz.Token{ .int = "10" };
+//     expected[45] = tkz.Token{ .gt = '>' };
+//     expected[46] = tkz.Token{ .int = "5" };
+//     expected[47] = tkz.Token{ .semicolon = ';' };
+//     expected[48] = tkz.Token{ .@"if" = "if" };
+//     expected[49] = tkz.Token{ .lparent = '(' };
+//     expected[50] = tkz.Token{ .int = "5" };
+//     expected[51] = tkz.Token{ .lt = '<' };
+//     expected[52] = tkz.Token{ .int = "10" };
+//     expected[53] = tkz.Token{ .rparent = ')' };
+//     expected[54] = tkz.Token{ .lbrace = '{' };
+//     expected[55] = tkz.Token{ .@"return" = "return" };
+//     expected[56] = tkz.Token{ .true = "true" };
+//     expected[57] = tkz.Token{ .semicolon = ';' };
+//     expected[58] = tkz.Token{ .rbrace = '}' };
+//     expected[59] = tkz.Token{ .@"else" = "else" };
+//     expected[60] = tkz.Token{ .lbrace = '{' };
+//     expected[61] = tkz.Token{ .@"return" = "return" };
+//     expected[62] = tkz.Token{ .false = "false" };
+//     expected[63] = tkz.Token{ .semicolon = ';' };
+//     expected[64] = tkz.Token{ .rbrace = '}' };
+//     expected[65] = tkz.Token{ .eof = 0 };
+//
+//     var lexer = lx.Lexer.init(input);
+//     for (expected) |expect| {
+//         const token = try lexer.nextToken();
+//         // std.debug.print("expected is {} actual is {}\n", .{ expect, token });
+//         try std.testing.expectEqualDeep(expect, token);
+//     }
+// }
 
 test {
     const input =
@@ -47,11 +112,22 @@ test {
         \\let add = fn(x, y) {
         \\  x + y;
         \\};
+        \\
         \\let result = add(five, ten);
+        \\!-/*5;
+        \\5 < 10 > 5;
+        \\if (5 < 10) {
+        \\  return true;
+        \\} else {
+        \\  return false;
+        \\}
+        \\
+        \\10 == 10;
+        \\10 != 9;
         \\
     ;
 
-    var expected: [37]tkz.Token = undefined;
+    var expected: [74]tkz.Token = undefined;
     expected[0] = tkz.Token{ .let = "let" };
     expected[1] = tkz.Token{ .ident = "five" };
     expected[2] = tkz.Token{ .assign = '=' };
@@ -88,7 +164,44 @@ test {
     expected[33] = tkz.Token{ .ident = "ten" };
     expected[34] = tkz.Token{ .rparent = ')' };
     expected[35] = tkz.Token{ .semicolon = ';' };
-    expected[36] = tkz.Token{ .eof = 0 };
+    expected[36] = tkz.Token{ .bang = '!' };
+    expected[37] = tkz.Token{ .minus = '-' };
+    expected[38] = tkz.Token{ .slash = '/' };
+    expected[39] = tkz.Token{ .asterisk = '*' };
+    expected[40] = tkz.Token{ .int = "5" };
+    expected[41] = tkz.Token{ .semicolon = ';' };
+    expected[42] = tkz.Token{ .int = "5" };
+    expected[43] = tkz.Token{ .lt = '<' };
+    expected[44] = tkz.Token{ .int = "10" };
+    expected[45] = tkz.Token{ .gt = '>' };
+    expected[46] = tkz.Token{ .int = "5" };
+    expected[47] = tkz.Token{ .semicolon = ';' };
+    expected[48] = tkz.Token{ .@"if" = "if" };
+    expected[49] = tkz.Token{ .lparent = '(' };
+    expected[50] = tkz.Token{ .int = "5" };
+    expected[51] = tkz.Token{ .lt = '<' };
+    expected[52] = tkz.Token{ .int = "10" };
+    expected[53] = tkz.Token{ .rparent = ')' };
+    expected[54] = tkz.Token{ .lbrace = '{' };
+    expected[55] = tkz.Token{ .@"return" = "return" };
+    expected[56] = tkz.Token{ .true = "true" };
+    expected[57] = tkz.Token{ .semicolon = ';' };
+    expected[58] = tkz.Token{ .rbrace = '}' };
+    expected[59] = tkz.Token{ .@"else" = "else" };
+    expected[60] = tkz.Token{ .lbrace = '{' };
+    expected[61] = tkz.Token{ .@"return" = "return" };
+    expected[62] = tkz.Token{ .false = "false" };
+    expected[63] = tkz.Token{ .semicolon = ';' };
+    expected[64] = tkz.Token{ .rbrace = '}' };
+    expected[65] = tkz.Token{ .int = "10" };
+    expected[66] = tkz.Token{ .equal = "==" };
+    expected[67] = tkz.Token{ .int = "10" };
+    expected[68] = tkz.Token{ .semicolon = ';' };
+    expected[69] = tkz.Token{ .int = "10" };
+    expected[70] = tkz.Token{ .not_equal = "!=" };
+    expected[71] = tkz.Token{ .int = "9" };
+    expected[72] = tkz.Token{ .semicolon = ';' };
+    expected[73] = tkz.Token{ .eof = 0 };
 
     var lexer = lx.Lexer.init(input);
     for (expected) |expect| {
