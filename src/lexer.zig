@@ -28,28 +28,38 @@ pub const Lexer = struct {
     }
 
     pub fn nextToken(self: *Self) tkz.unimplementedTokenError!tkz.Token {
-        const token = switch (self.ch) {
-            '=' => tkz.Token{ .assign = self.ch },
-            ';' => tkz.Token{ .semicolon = self.ch },
-            '(' => tkz.Token{ .lparent = self.ch },
-            ')' => tkz.Token{ .rparent = self.ch },
-            ',' => tkz.Token{ .comma = self.ch },
-            '+' => tkz.Token{ .plus = self.ch },
-            '{' => tkz.Token{ .lbrace = self.ch },
-            '}' => tkz.Token{ .rbrace = self.ch },
-            0 => tkz.Token{ .eof = self.ch },
+        var token: tkz.Token = undefined;
+        read: switch (self.ch) {
+            '=' => token = tkz.Token{ .assign = self.ch },
+            ';' => token = tkz.Token{ .semicolon = self.ch },
+            '(' => token = tkz.Token{ .lparent = self.ch },
+            ')' => token = tkz.Token{ .rparent = self.ch },
+            ',' => token = tkz.Token{ .comma = self.ch },
+            '+' => token = tkz.Token{ .plus = self.ch },
+            '{' => token = tkz.Token{ .lbrace = self.ch },
+            '}' => token = tkz.Token{ .rbrace = self.ch },
+            0 => token = tkz.Token{ .eof = self.ch },
             else => {
                 if (isLetter(self.ch)) {
-                    return tkz.Token{ .ident = self.readIdentifier() };
+                    // early termination because we already moved to the next char
+                    return try tkz.identifierToToken(self.readIdentifier());
+                } else if (isDigit(self.ch)) {
+                    return tkz.Token{ .int = self.readNumber() };
                 } else {
-                    return tkz.Token{ .illegal = self.ch };
+                    if (self.ch == ' ' or self.ch == '\t' or self.ch == '\n' or self.ch == '\r') {
+                        self.readChar();
+                        continue :read self.ch;
+                    }
+                    token = tkz.Token{ .illegal = self.ch };
                 }
             },
-        };
+        }
+
         self.readChar();
         return token;
     }
 
+    // Could be changed by passing the is... function and applying that
     pub fn readIdentifier(self: *Self) []const u8 {
         const start_pos = self.position;
         while (isLetter(self.ch)) {
@@ -58,7 +68,19 @@ pub const Lexer = struct {
         return self.input[start_pos..self.position];
     }
 
+    pub fn readNumber(self: *Self) []const u8 {
+        const start_pos = self.position;
+        while (isDigit(self.ch)) {
+            self.readChar();
+        }
+        return self.input[start_pos..self.position];
+    }
+
     fn isLetter(character: u8) bool {
         return (character >= 65 and character <= 90) or (character >= 97 and character <= 122) or (character == '_');
+    }
+
+    fn isDigit(character: u8) bool {
+        return character >= '0' and character <= '9';
     }
 };

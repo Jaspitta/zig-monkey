@@ -40,10 +40,12 @@ pub const unimplementedTokenError = error{
 
 pub fn identifierToToken(identifier: []const u8) unimplementedTokenError!Token {
     const code = strToSum(identifier);
+
+    // This is probably is a good candidate for something done at comptime
     return switch (code) {
         325 => Token{ .let = identifier },
-        870 => Token{ .function = identifier },
-        else => unimplementedTokenError.NotImplemented,
+        870, 212 => Token{ .function = identifier },
+        else => Token{ .ident = identifier },
     };
 }
 
@@ -56,7 +58,7 @@ fn strToSum(str: []const u8) u32 {
 }
 
 test {
-    const identifiers: [3][]const u8 = .{ "let", "function", "if" };
+    const identifiers: [3][]const u8 = .{ "let", "function", "fn" };
     var codes: [identifiers.len]u32 = undefined;
     for (identifiers, 0..) |identifier, i| {
         codes[i] = strToSum(identifier);
