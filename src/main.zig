@@ -1,14 +1,18 @@
 comptime {
     _ = @import("./tokenizer.zig");
+    _ = @import("./repl.zig");
 }
 
 const std = @import("std");
 const lx = @import("./lexer.zig");
 const tkz = @import("./tokenizer.zig");
 const rpl = @import("./repl.zig");
+const stdOut = std.io.getStdOut();
+const stdIn = std.io.getStdIn();
 
 pub fn main() !void {
-    std.debug.print("main running \n", .{});
+    std.debug.print("Hello user, welcome to the monkey language zig interpreter \n", .{});
+    try rpl.start(stdIn.reader().any(), stdOut.writer().any());
 }
 
 test {
