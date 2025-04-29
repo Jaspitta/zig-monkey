@@ -1,6 +1,7 @@
 comptime {
     _ = @import("./tokenizer.zig");
     _ = @import("./repl.zig");
+    _ = @import("./ast.zig");
 }
 
 const std = @import("std");
@@ -9,6 +10,7 @@ const tkz = @import("./tokenizer.zig");
 const rpl = @import("./repl.zig");
 const stdOut = std.io.getStdOut();
 const stdIn = std.io.getStdIn();
+const ast = @import("./ast.zig");
 
 pub fn main() !void {
     std.debug.print("Hello user, welcome to the monkey language zig interpreter \n", .{});
