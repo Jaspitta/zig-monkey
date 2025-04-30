@@ -27,7 +27,7 @@ pub const Lexer = struct {
         self.read_position += 1;
     }
 
-    pub fn nextToken(self: *Self) tkz.unimplementedTokenError!tkz.Token {
+    pub fn nextToken(self: *Self) tkz.Token {
         var token: tkz.Token = undefined;
         read: switch (self.ch) {
             '=' => {
@@ -64,7 +64,7 @@ pub const Lexer = struct {
             else => {
                 if (isLetter(self.ch)) {
                     // early termination because we already moved to the next char
-                    return try tkz.identifierToToken(self.readIdentifier());
+                    return tkz.identifierToToken(self.readIdentifier());
                 } else if (isDigit(self.ch)) {
                     return tkz.Token{ .int = self.readNumber() };
                 } else {

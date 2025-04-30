@@ -58,16 +58,16 @@ pub const Program = struct {
 
 };
 
-const Identifier = struct {
-    token: tkz.Token,
-    value: []const u8,
+pub const Identifier = struct {
+    token: tkz.TokenTag,
+    value: tkz.Token,
 
     fn tokenLiteral(self: Identifier) []const u8 {
-        return self.token.ident;
+        return self.value.ident;
     }
 };
 
-const LetStatement = struct {
+pub const LetStatement = struct {
     token: tkz.Token,
     name: Identifier,
     value: Expression,

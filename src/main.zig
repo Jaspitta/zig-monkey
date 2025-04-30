@@ -2,6 +2,7 @@ comptime {
     _ = @import("./tokenizer.zig");
     _ = @import("./repl.zig");
     _ = @import("./ast.zig");
+    _ = @import("./parser.zig");
 }
 
 const std = @import("std");
@@ -117,8 +118,31 @@ test {
 
     var lexer = lx.Lexer.init(input);
     for (expected) |expect| {
-        const token = try lexer.nextToken();
+        const token = lexer.nextToken();
         // std.debug.print("expected is {} actual is {}\n", .{ expect, token });
         try std.testing.expectEqualDeep(expect, token);
     }
 }
+
+// test {
+//     const TestEnum = enum {
+//         foo,
+//         bar,
+//     };
+//     const TestUnion = union(TestEnum) {
+//         foo: []const u8,
+//         bar: []const u8,
+//     };
+//
+//     const testU_foo = TestUnion{ .foo = "test foo" };
+//     const testU_bar = TestUnion{ .bar = "test bar" };
+//
+//     const p_foo = switch (testU_foo) {
+//         inline else => |case| case,
+//     };
+//     const p_bar = switch (testU_bar) {
+//         inline else => |case| case,
+//     };
+//
+//     std.debug.print("for foo value is {s} and for bar value is {s}", .{ p_foo, p_bar });
+// }

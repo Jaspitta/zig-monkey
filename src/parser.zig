@@ -9,7 +9,7 @@ const Parser = struct {
     peekToken: tkz.Token,
 
     pub fn init(lexer: lxr.Lexer) Parser {
-        const parser = .{
+        var parser = Parser{
             .lexer = lexer,
             .curToken = undefined,
             .peekToken = undefined,
@@ -22,40 +22,68 @@ const Parser = struct {
         return parser;
     }
 
-    fn nextToken(self: Parser) void {
+    fn nextToken(self: *Parser) void {
         self.curToken = self.peekToken;
         self.peekToken = self.lexer.nextToken();
     }
 
-    pub fn parseProgram(self: Parser, allocator: std.Allocator) ast.Program {
-        const program = ast.Program{};
-        program.statements.init(allocator);
-        while (self.curToken != tkz.TokenTag.eof) {
-            const statement = program.parseStatement();
-            if (statement != null) program.statements.append(statement);
+    pub fn parseProgram(self: *Parser, allocator: std.mem.Allocator) ast.Program {
+        var program = ast.Program{ .statements = undefined };
+        program.statements = std.ArrayList(ast.Statement).init(allocator);
+        while (@intFromEnum(self.curToken) != @intFromEnum(tkz.TokenTag.eof)) {
+            const statement = self.parseStatement();
+            if (statement != null) {
+                try program.statements.append(statement.?) catch {};
+            }
             self.nextToken();
         }
         return program;
     }
 
-    fn parseStatement(self: Parser) ast.Statement {
+    fn parseStatement(self: *Parser) ?ast.Statement {
         return switch (self.curToken) {
             .let => return self.parseLetStatement(),
             else => return null,
         };
     }
-};
 
-fn testLetStatement(stmnt: ast.Statement, expect: []const u8) void {
-    std.testing.expect(std.mem.equal(stmnt.tokenLiteral(), "let"));
-    switch (stmnt) {
-        .letStatement => {},
-        else => std.testing.expect(false),
+    fn parseLetStatement(self: *Parser) ?ast.Statement {
+        var stmnt = ast.Statement{ .letStatement = ast.LetStatement{
+            .token = self.curToken,
+            .name = undefined,
+            .value = undefined,
+        } };
+
+        if (!self.expectPeek(tkz.TokenTag.ident)) return null;
+
+        stmnt.letStatement.name = ast.Identifier{
+            .token = @enumFromInt(@intFromEnum(self.curToken)),
+            .value = self.curToken,
+        };
+
+        if (!self.expectPeek(tkz.TokenTag.assign)) return null;
+
+        if (!self.curTokenIs(tkz.TokenTag.semicolon)) self.nextToken();
+        return stmnt;
     }
 
-    std.testing.expect(std.mem.equal(stmnt.letStatement.name.value, expect));
-    std.testing.expect(std.mem.equal(stmnt.letStatement.token.let, expect));
-}
+    fn curTokenIs(self: Parser, tokenTag: tkz.TokenTag) bool {
+        const actualEnum: tkz.TokenTag = @enumFromInt(@intFromEnum(self.curToken));
+        return actualEnum == tokenTag;
+    }
+
+    fn peekTokenIs(self: Parser, tokenTag: tkz.TokenTag) bool {
+        const actualEnum: tkz.TokenTag = @enumFromInt(@intFromEnum(self.peekToken));
+        return actualEnum == tokenTag;
+    }
+
+    fn expectPeek(self: *Parser, tokenTag: tkz.TokenTag) bool {
+        if (self.peekTokenIs(tokenTag)) {
+            self.nextToken();
+            return true;
+        } else return false;
+    }
+};
 
 test {
     const input =
@@ -65,16 +93,25 @@ test {
     ;
 
     const lex = lxr.Lexer.init(input);
-    const prs = Parser.init(lex);
-    const program = prs.parseProgram(std.heap.ArenaAllocator.init(std.heap.page_allocator));
-    defer program.statements.deinit();
-    if (program == null) std.testing.expect(false);
-    if (program.statements.items.len != 3) std.testing.expect(false);
+    var prs = Parser.init(lex);
+    var arena_allocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    const g_allocator = arena_allocator.allocator();
+    const program = prs.parseProgram(g_allocator);
+    defer arena_allocator.deinit();
+    if (program.statements.items.len != 3) try std.testing.expect(false);
 
-    var expected = [3]u8{};
-    expected[0] = "x";
-    expected[0] = "y";
-    expected[0] = "foobar";
+    const expected = [_][]const u8{ "x", "y", "foobar" };
 
-    for (expected, 0..) |expect, i| testLetStatement(program.statements.items[i], expect);
+    for (expected, 0..) |expect, i| try testLetStatement(program.statements.items[i], expect);
+}
+
+fn testLetStatement(stmnt: ast.Statement, expect: []const u8) !void {
+    try std.testing.expect(std.mem.eql(u8, stmnt.tokenLiteral(), "let"));
+    switch (stmnt) {
+        .letStatement => {},
+        // else => std.testing.expect(false),
+    }
+
+    try std.testing.expect(std.mem.eql(u8, stmnt.letStatement.name.value.let, expect));
+    // try std.testing.expect(std.mem.eql(u8, stmnt.letStatement.token.let, expect));
 }

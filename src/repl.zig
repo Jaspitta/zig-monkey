@@ -15,8 +15,8 @@ pub fn start(reader: std.io.AnyReader, writer: std.io.AnyWriter) !void {
         };
         if (line.len == 0) continue;
         var lexer: lx.Lexer = lx.Lexer.init(line);
-        var token = try lexer.nextToken();
-        while (token != tk.TokenTag.eof) : (token = try lexer.nextToken()) {
+        var token = lexer.nextToken();
+        while (token != tk.TokenTag.eof) : (token = lexer.nextToken()) {
             try writer.print("{}\n", .{token});
         }
     }

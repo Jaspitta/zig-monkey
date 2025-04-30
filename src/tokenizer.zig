@@ -64,7 +64,7 @@ pub const unimplementedTokenError = error{
     NotImplemented,
 };
 
-pub fn identifierToToken(identifier: []const u8) unimplementedTokenError!Token {
+pub fn identifierToToken(identifier: []const u8) Token {
     const code = strToSum(identifier);
 
     // This is probably is a good candidate for something done at comptime
