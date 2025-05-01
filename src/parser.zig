@@ -28,8 +28,7 @@ const Parser = struct {
     }
 
     pub fn parseProgram(self: *Parser, allocator: std.mem.Allocator) !ast.Program {
-        var program = ast.Program{ .statements = undefined };
-        program.statements = std.ArrayList(ast.Statement).init(allocator);
+        var program = ast.Program{ .statements = std.ArrayList(ast.Statement).init(allocator) };
         while (@intFromEnum(self.curToken) != @intFromEnum(tkz.TokenTag.eof)) {
             const statement = self.parseStatement();
             if (statement != null) {
@@ -93,10 +92,12 @@ test {
 
     const lex = lxr.Lexer.init(input);
     var prs = Parser.init(lex);
+
     var arena_allocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena_allocator.deinit();
+
     const g_allocator = arena_allocator.allocator();
     const program = try prs.parseProgram(g_allocator);
-    defer arena_allocator.deinit();
     if (program.statements.items.len != 3) try std.testing.expect(false);
 
     const expected = [_][]const u8{ "x", "y", "foobar" };
