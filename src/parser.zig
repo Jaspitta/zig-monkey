@@ -9,13 +9,14 @@ const Parser = struct {
     peekToken: tkz.Token,
     errors: *std.ArrayList([]const u8),
 
-    pub fn init(lexer: lxr.Lexer, allocator: std.mem.Allocator) Parser {
-        var errors = std.ArrayList([]const u8).init(allocator);
+    pub fn init(lexer: lxr.Lexer, allocator: std.mem.Allocator) !Parser {
+        const errors = try allocator.create(std.ArrayList([]const u8));
+        errors.* = std.ArrayList([]const u8).init(allocator);
         var parser = Parser{
             .lexer = lexer,
             .curToken = undefined,
             .peekToken = undefined,
-            .errors = &errors,
+            .errors = errors,
         };
 
         // setting both current and next token
@@ -84,13 +85,17 @@ const Parser = struct {
         if (self.peekTokenIs(tokenTag)) {
             self.nextToken();
             return true;
-        } else return false;
+        } else {
+            self.peekErr(tokenTag) catch |err| {
+                std.debug.print("{}\n", .{err});
+            };
+            return false;
+        }
     }
 
     fn peekErr(self: *Parser, expected: tkz.TokenTag) !void {
-        const buff = [32 + @sizeOf(tkz.TokenTag) * 2]u8;
-        try std.fmt.format(&buff, "expected tag was {} but found {}", .{ expected, @as(self.peekToken, tkz.TokenTag) });
-        try self.errors.append(buff);
+        const curr_tag: tkz.TokenTag = @enumFromInt(@intFromEnum(self.peekToken));
+        try self.errors.*.append(try std.fmt.allocPrint(self.errors.*.allocator, "expected tag was {} but found {}", .{ expected, curr_tag }));
     }
 };
 
@@ -99,6 +104,7 @@ test {
         \\ let x = 5;
         \\ let y = 10;
         \\ let foobar = 838383;
+        // \\ let 8888;
     ;
 
     var arena_allocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -107,17 +113,15 @@ test {
     const g_allocator = arena_allocator.allocator();
 
     const lex = lxr.Lexer.init(input);
-    var prs = Parser.init(lex, g_allocator);
+    var prs = try Parser.init(lex, g_allocator);
 
     const program = try prs.parseProgram(g_allocator);
     if (program.statements.items.len != 3) try std.testing.expect(false);
 
     const expected = [_][]const u8{ "x", "y", "foobar" };
 
-    for (expected, 0..) |expect, i| {
-        try testLetStatement(program.statements.items[i], expect);
-        try checkParseErrors(prs);
-    }
+    for (expected, 0..) |expect, i| try testLetStatement(program.statements.items[i], expect);
+    try checkParseErrors(prs);
 }
 
 fn testLetStatement(stmnt: ast.Statement, expect: []const u8) !void {
@@ -132,9 +136,11 @@ fn testLetStatement(stmnt: ast.Statement, expect: []const u8) !void {
 }
 
 fn checkParseErrors(parser: Parser) !void {
-    for (parser.errors.items) |err| {
-        std.debug.print("{s}", .{err});
-        std.debug.print("\n", .{});
+    if (parser.errors.*.items.len > 0) {
+        for (parser.errors.*.items) |err| {
+            std.debug.print("{s}", .{err});
+            std.debug.print("\n", .{});
+        }
     }
-    std.testing.expect(parser.errors.items.len == 0);
+    try std.testing.expect(parser.errors.*.items.len == 0);
 }
