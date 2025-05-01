@@ -114,7 +114,10 @@ test {
 
     const expected = [_][]const u8{ "x", "y", "foobar" };
 
-    for (expected, 0..) |expect, i| try testLetStatement(program.statements.items[i], expect);
+    for (expected, 0..) |expect, i| {
+        try testLetStatement(program.statements.items[i], expect);
+        try checkParseErrors(prs);
+    }
 }
 
 fn testLetStatement(stmnt: ast.Statement, expect: []const u8) !void {
@@ -126,4 +129,12 @@ fn testLetStatement(stmnt: ast.Statement, expect: []const u8) !void {
 
     try std.testing.expect(std.mem.eql(u8, stmnt.letStatement.name.tokenLiteral(), expect));
     // try std.testing.expect(std.mem.eql(u8, stmnt.letStatement.token.let, expect));
+}
+
+fn checkParseErrors(parser: Parser) !void {
+    for (parser.errors.items) |err| {
+        std.debug.print("{s}", .{err});
+        std.debug.print("\n", .{});
+    }
+    std.testing.expect(parser.errors.items.len == 0);
 }
