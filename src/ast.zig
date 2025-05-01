@@ -59,11 +59,10 @@ pub const Program = struct {
 };
 
 pub const Identifier = struct {
-    token: tkz.TokenTag,
-    value: tkz.Token,
+    token: tkz.Token,
 
-    fn tokenLiteral(self: Identifier) []const u8 {
-        return self.value.ident;
+    pub fn tokenLiteral(self: Identifier) []const u8 {
+        return self.token.ident;
     }
 };
 

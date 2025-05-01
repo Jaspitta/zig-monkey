@@ -125,6 +125,15 @@ test {
 }
 
 // test {
+//     const tag: tkz.Token = tkz.Token{ .let = "let" };
+//     const enu: tkz.TokenTag = @as(tkz.TokenTag, tag);
+//     std.debug.print("{}\n", .{enu});
+//     std.debug.print("{any}", .{switch (tag) {
+//         inline else => |case| case,
+//     }});
+// }
+
+// test {
 //     const TestEnum = enum {
 //         foo,
 //         bar,

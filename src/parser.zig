@@ -27,13 +27,13 @@ const Parser = struct {
         self.peekToken = self.lexer.nextToken();
     }
 
-    pub fn parseProgram(self: *Parser, allocator: std.mem.Allocator) ast.Program {
+    pub fn parseProgram(self: *Parser, allocator: std.mem.Allocator) !ast.Program {
         var program = ast.Program{ .statements = undefined };
         program.statements = std.ArrayList(ast.Statement).init(allocator);
         while (@intFromEnum(self.curToken) != @intFromEnum(tkz.TokenTag.eof)) {
             const statement = self.parseStatement();
             if (statement != null) {
-                try program.statements.append(statement.?) catch {};
+                try program.statements.append(statement.?);
             }
             self.nextToken();
         }
@@ -57,8 +57,7 @@ const Parser = struct {
         if (!self.expectPeek(tkz.TokenTag.ident)) return null;
 
         stmnt.letStatement.name = ast.Identifier{
-            .token = @enumFromInt(@intFromEnum(self.curToken)),
-            .value = self.curToken,
+            .token = self.curToken,
         };
 
         if (!self.expectPeek(tkz.TokenTag.assign)) return null;
@@ -96,7 +95,7 @@ test {
     var prs = Parser.init(lex);
     var arena_allocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     const g_allocator = arena_allocator.allocator();
-    const program = prs.parseProgram(g_allocator);
+    const program = try prs.parseProgram(g_allocator);
     defer arena_allocator.deinit();
     if (program.statements.items.len != 3) try std.testing.expect(false);
 
@@ -112,6 +111,6 @@ fn testLetStatement(stmnt: ast.Statement, expect: []const u8) !void {
         // else => std.testing.expect(false),
     }
 
-    try std.testing.expect(std.mem.eql(u8, stmnt.letStatement.name.value.let, expect));
+    try std.testing.expect(std.mem.eql(u8, stmnt.letStatement.name.tokenLiteral(), expect));
     // try std.testing.expect(std.mem.eql(u8, stmnt.letStatement.token.let, expect));
 }
