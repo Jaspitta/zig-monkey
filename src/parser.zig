@@ -7,12 +7,15 @@ const Parser = struct {
     lexer: lxr.Lexer,
     curToken: tkz.Token,
     peekToken: tkz.Token,
+    errors: *std.ArrayList([]const u8),
 
-    pub fn init(lexer: lxr.Lexer) Parser {
+    pub fn init(lexer: lxr.Lexer, allocator: std.mem.Allocator) Parser {
+        var errors = std.ArrayList([]const u8).init(allocator);
         var parser = Parser{
             .lexer = lexer,
             .curToken = undefined,
             .peekToken = undefined,
+            .errors = &errors,
         };
 
         // setting both current and next token
@@ -29,6 +32,8 @@ const Parser = struct {
 
     pub fn parseProgram(self: *Parser, allocator: std.mem.Allocator) !ast.Program {
         var program = ast.Program{ .statements = std.ArrayList(ast.Statement).init(allocator) };
+
+        // could also use @as here, if there is an impactful difference in speed/memory
         while (@intFromEnum(self.curToken) != @intFromEnum(tkz.TokenTag.eof)) {
             const statement = self.parseStatement();
             if (statement != null) {
@@ -61,7 +66,7 @@ const Parser = struct {
 
         if (!self.expectPeek(tkz.TokenTag.assign)) return null;
 
-        if (!self.curTokenIs(tkz.TokenTag.semicolon)) self.nextToken();
+        while (!self.curTokenIs(tkz.TokenTag.semicolon)) self.nextToken();
         return stmnt;
     }
 
@@ -81,6 +86,12 @@ const Parser = struct {
             return true;
         } else return false;
     }
+
+    fn peekErr(self: *Parser, expected: tkz.TokenTag) !void {
+        const buff = [32 + @sizeOf(tkz.TokenTag) * 2]u8;
+        try std.fmt.format(&buff, "expected tag was {} but found {}", .{ expected, @as(self.peekToken, tkz.TokenTag) });
+        try self.errors.append(buff);
+    }
 };
 
 test {
@@ -90,13 +101,14 @@ test {
         \\ let foobar = 838383;
     ;
 
-    const lex = lxr.Lexer.init(input);
-    var prs = Parser.init(lex);
-
     var arena_allocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena_allocator.deinit();
 
     const g_allocator = arena_allocator.allocator();
+
+    const lex = lxr.Lexer.init(input);
+    var prs = Parser.init(lex, g_allocator);
+
     const program = try prs.parseProgram(g_allocator);
     if (program.statements.items.len != 3) try std.testing.expect(false);
 
