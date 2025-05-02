@@ -48,6 +48,7 @@ const Parser = struct {
     fn parseStatement(self: *Parser) ?ast.Statement {
         return switch (self.curToken) {
             .let => return self.parseLetStatement(),
+            .@"return" => return self.parseReturnStatement(),
             else => return null,
         };
     }
@@ -66,6 +67,19 @@ const Parser = struct {
         };
 
         if (!self.expectPeek(tkz.TokenTag.assign)) return null;
+
+        while (!self.curTokenIs(tkz.TokenTag.semicolon)) self.nextToken();
+        return stmnt;
+    }
+
+    fn parseReturnStatement(self: *Parser) ?ast.Statement {
+        const stmnt = ast.Statement{ .return_statement = ast.ReturnStatement{
+            .token = self.curToken,
+            .return_value = undefined,
+        } };
+
+        self.nextToken();
+        // parse expression
 
         while (!self.curTokenIs(tkz.TokenTag.semicolon)) self.nextToken();
         return stmnt;
@@ -124,12 +138,36 @@ test {
     try checkParseErrors(prs);
 }
 
+test {
+    const input =
+        \\ return 5;
+        \\ return 10;
+        \\ return 838383;
+        // \\ let 8888;
+    ;
+
+    var arena_allocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena_allocator.deinit();
+
+    const g_allocator = arena_allocator.allocator();
+
+    const lex = lxr.Lexer.init(input);
+    var prs = try Parser.init(lex, g_allocator);
+
+    const program = try prs.parseProgram(g_allocator);
+    if (program.statements.items.len != 3) try std.testing.expect(false);
+
+    for (program.statements.items) |stmnt| try std.testing.expect(std.mem.eql(u8, stmnt.tokenLiteral(), "return"));
+    try checkParseErrors(prs);
+}
+
 fn testLetStatement(stmnt: ast.Statement, expect: []const u8) !void {
     try std.testing.expect(std.mem.eql(u8, stmnt.tokenLiteral(), "let"));
-    switch (stmnt) {
-        .letStatement => {},
-        // else => std.testing.expect(false),
-    }
+    // switch (stmnt) {
+    //     .letStatement => {},
+    //     .return_statement => {},
+    //     // else => std.testing.expect(false),
+    // }
 
     try std.testing.expect(std.mem.eql(u8, stmnt.letStatement.name.tokenLiteral(), expect));
     // try std.testing.expect(std.mem.eql(u8, stmnt.letStatement.token.let, expect));

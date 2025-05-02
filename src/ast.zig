@@ -10,6 +10,12 @@ const Node = union(enum) {
             inline else => |case| return case.tokenLiteral(),
         }
     }
+
+    pub fn toStr(self: Node) []const u8 {
+        switch (self) {
+            inline else => |case| return case.toStr(),
+        }
+    }
 };
 
 // const StatementU = union(enum) {
@@ -22,10 +28,18 @@ const Node = union(enum) {
 
 pub const Statement = union(enum) {
     letStatement: LetStatement,
+    return_statement: ReturnStatement,
+    expression_statement: ExpressionStatement,
 
     pub fn tokenLiteral(self: Statement) []const u8 {
         switch (self) {
             inline else => |case| return case.tokenLiteral(),
+        }
+    }
+
+    pub fn toStr(self: Node) []const u8 {
+        switch (self) {
+            inline else => |case| return case.toStr(),
         }
     }
 };
@@ -46,16 +60,26 @@ const Expression = union(enum) {
             inline else => |case| return case.tokenLiteral(),
         }
     }
+
+    pub fn toStr(self: Node) []const u8 {
+        switch (self) {
+            inline else => |case| return case.toStr(),
+        }
+    }
 };
 
 // root of the AST
 pub const Program = struct {
     statements: std.ArrayList(Statement),
 
-    // fn tokenLiteral(self: Program) []const u8 {
-    //     return if (self.statements.len > 0) self.statements[0].node.tokenLiteral() else return "";
-    // }
+    fn tokenLiteral(self: Program) []const u8 {
+        return if (self.statements.len > 0) self.statements[0].node.tokenLiteral() else return "";
+    }
 
+    fn toStr(self: Program) []const u8 {
+        _ = self;
+        // dynamic buffer
+    }
 };
 
 pub const Identifier = struct {
@@ -73,6 +97,35 @@ pub const LetStatement = struct {
 
     fn tokenLiteral(self: LetStatement) []const u8 {
         return self.token.let;
+    }
+
+    // need to check for undefined;
+    fn toStr(self: LetStatement) []const u8 {
+        _ = self;
+        // dynamic buffer
+    }
+};
+
+pub const ReturnStatement = struct {
+    token: tkz.Token,
+    return_value: Expression,
+
+    fn tokenLiteral(self: ReturnStatement) []const u8 {
+        return self.token.@"return";
+    }
+};
+
+pub const ExpressionStatement = struct {
+    token: tkz.Token,
+    expression: Expression,
+
+    fn tokenLiteral(self: ExpressionStatement) []const u8 {
+        return @as(
+            []u8,
+            switch (self.token) {
+                inline else => |case| case,
+            },
+        );
     }
 };
 
