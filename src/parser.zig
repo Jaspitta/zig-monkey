@@ -158,6 +158,8 @@ test {
     if (program.statements.items.len != 3) try std.testing.expect(false);
 
     for (program.statements.items) |stmnt| try std.testing.expect(std.mem.eql(u8, stmnt.tokenLiteral(), "return"));
+    const str = program.toStr();
+    std.debug.print("{s}\n", .{str});
     try checkParseErrors(prs);
 }
 

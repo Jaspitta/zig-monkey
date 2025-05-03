@@ -37,7 +37,7 @@ pub const Statement = union(enum) {
         }
     }
 
-    pub fn toStr(self: Node) []const u8 {
+    pub fn toStr(self: Statement) []const u8 {
         switch (self) {
             inline else => |case| return case.toStr(),
         }
@@ -55,13 +55,15 @@ pub const Statement = union(enum) {
 // };
 
 const Expression = union(enum) {
+    identifier: Identifier,
+
     pub fn tokenLiteral(self: Expression) []const u8 {
         switch (self) {
             inline else => |case| return case.tokenLiteral(),
         }
     }
 
-    pub fn toStr(self: Node) []const u8 {
+    pub fn toStr(self: Expression) []const u8 {
         switch (self) {
             inline else => |case| return case.toStr(),
         }
@@ -76,9 +78,19 @@ pub const Program = struct {
         return if (self.statements.len > 0) self.statements[0].node.tokenLiteral() else return "";
     }
 
-    fn toStr(self: Program) []const u8 {
-        _ = self;
-        // dynamic buffer
+    pub fn toStr(self: Program) []const u8 {
+        // assuming max length
+        var str: [1024]u8 = undefined;
+        var i: u16 = 0;
+        for (self.statements.items) |item| {
+            for (item.toStr()) |ch| {
+                str[i] = ch;
+                i += 1;
+            }
+            str[i] = '\n';
+            i += 1;
+        }
+        return str[0..i];
     }
 };
 
@@ -86,6 +98,10 @@ pub const Identifier = struct {
     token: tkz.Token,
 
     pub fn tokenLiteral(self: Identifier) []const u8 {
+        return self.token.ident;
+    }
+
+    pub fn toStr(self: Identifier) []const u8 {
         return self.token.ident;
     }
 };
@@ -100,9 +116,34 @@ pub const LetStatement = struct {
     }
 
     // need to check for undefined;
-    fn toStr(self: LetStatement) []const u8 {
-        _ = self;
-        // dynamic buffer
+    pub fn toStr(self: LetStatement) []const u8 {
+        var i: u16 = 0;
+        //assuming max length
+        var resp: [1024]u8 = undefined;
+        for (self.token.literal()) |ch| {
+            resp[i] = ch;
+            i += 1;
+        }
+        resp[i] = ' ';
+        i += 1;
+        for (self.name.tokenLiteral()) |ch| {
+            resp[i] = ch;
+            i += 1;
+        }
+        resp[i] = ' ';
+        i += 1;
+        resp[i] = '=';
+        i += 1;
+        resp[i] = ' ';
+        i += 1;
+        for (self.value.toStr()) |ch| {
+            resp[i] = ch;
+            i += 1;
+        }
+        resp[i] = ';';
+        i += 1;
+
+        return resp[0..i];
     }
 };
 
@@ -113,6 +154,24 @@ pub const ReturnStatement = struct {
     fn tokenLiteral(self: ReturnStatement) []const u8 {
         return self.token.@"return";
     }
+
+    pub fn toStr(self: ReturnStatement) []const u8 {
+        var i: u16 = 0;
+        //assume max length;
+        var resp: [1024]u8 = undefined;
+        for (self.token.literal()) |ch| {
+            resp[i] = ch;
+            i += 1;
+        }
+        resp[i] = ' ';
+        i += 1;
+        for (self.return_value.toStr()) |ch| {
+            resp[i] = ch;
+            i += 1;
+        }
+        resp[i] = ';';
+        return resp[0..i];
+    }
 };
 
 pub const ExpressionStatement = struct {
@@ -120,12 +179,11 @@ pub const ExpressionStatement = struct {
     expression: Expression,
 
     fn tokenLiteral(self: ExpressionStatement) []const u8 {
-        return @as(
-            []u8,
-            switch (self.token) {
-                inline else => |case| case,
-            },
-        );
+        return self.token.literal();
+    }
+
+    pub fn toStr(self: ExpressionStatement) []const u8 {
+        return self.expression.toStr();
     }
 };
 
