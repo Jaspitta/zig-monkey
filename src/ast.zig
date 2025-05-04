@@ -54,7 +54,7 @@ pub const Statement = union(enum) {
 //     }
 // };
 
-const Expression = union(enum) {
+pub const Expression = union(enum) {
     identifier: Identifier,
 
     pub fn tokenLiteral(self: Expression) []const u8 {
@@ -78,19 +78,22 @@ pub const Program = struct {
         return if (self.statements.len > 0) self.statements[0].node.tokenLiteral() else return "";
     }
 
-    pub fn toStr(self: Program) []const u8 {
-        // assuming max length
-        var str: [1024]u8 = undefined;
-        var i: u16 = 0;
-        for (self.statements.items) |item| {
-            for (item.toStr()) |ch| {
-                str[i] = ch;
-                i += 1;
+    pub fn toStr(self: Program, allocator: std.mem.Allocator) []const u8 {
+        const size = sz: {
+            var size: usize = 0;
+            for (self.statements.items) |item| {
+                size += item.toStr().len;
             }
-            str[i] = '\n';
-            i += 1;
+            break :sz size;
+        };
+        var buffer = allocator.alloc(u8, size) catch return "";
+        var i: usize = 0;
+        for (self.statements.items) |item| {
+            const str = item.toStr();
+            std.mem.copyForwards(u8, buffer[i..], str);
+            i += str.len;
         }
-        return str[0..i];
+        return buffer;
     }
 };
 
@@ -115,10 +118,9 @@ pub const LetStatement = struct {
         return self.token.let;
     }
 
-    // need to check for undefined;
+    // Why does this not get lost when return from the stack?
     pub fn toStr(self: LetStatement) []const u8 {
         var i: u16 = 0;
-        //assuming max length
         var resp: [1024]u8 = undefined;
         for (self.token.literal()) |ch| {
             resp[i] = ch;
@@ -170,6 +172,7 @@ pub const ReturnStatement = struct {
             i += 1;
         }
         resp[i] = ';';
+        std.debug.print("from return statement: {s}\n", .{resp[0..i]});
         return resp[0..i];
     }
 };
@@ -183,6 +186,7 @@ pub const ExpressionStatement = struct {
     }
 
     pub fn toStr(self: ExpressionStatement) []const u8 {
+        std.debug.print("from expression statement: {s}\n", .{self.expression.toStr()});
         return self.expression.toStr();
     }
 };

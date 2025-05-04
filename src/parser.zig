@@ -111,6 +111,9 @@ const Parser = struct {
         const curr_tag: tkz.TokenTag = @enumFromInt(@intFromEnum(self.peekToken));
         try self.errors.*.append(try std.fmt.allocPrint(self.errors.*.allocator, "expected tag was {} but found {}", .{ expected, curr_tag }));
     }
+
+    // fn prefixParseFn(self: Parser, token: tkz.Token) ast.Expression {}
+    // fn infixParseFn(self: Parser, left_side: ast.Expression, token: tkz.Token) ast.Expression {}
 };
 
 test {
@@ -118,7 +121,6 @@ test {
         \\ let x = 5;
         \\ let y = 10;
         \\ let foobar = 838383;
-        // \\ let 8888;
     ;
 
     var arena_allocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -143,7 +145,6 @@ test {
         \\ return 5;
         \\ return 10;
         \\ return 838383;
-        // \\ let 8888;
     ;
 
     var arena_allocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -158,9 +159,25 @@ test {
     if (program.statements.items.len != 3) try std.testing.expect(false);
 
     for (program.statements.items) |stmnt| try std.testing.expect(std.mem.eql(u8, stmnt.tokenLiteral(), "return"));
-    const str = program.toStr();
-    std.debug.print("{s}\n", .{str});
     try checkParseErrors(prs);
+}
+
+test {
+    var expected_program = ast.Program{
+        .statements = undefined,
+    };
+    var arena_allocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena_allocator.deinit();
+    const g_allocator = arena_allocator.allocator();
+    var list = std.ArrayList(ast.Statement).init(g_allocator);
+    defer list.deinit();
+    try list.append(ast.Statement{ .letStatement = ast.LetStatement{ .token = tkz.Token{ .let = "let" }, .name = ast.Identifier{
+        .token = tkz.Token{ .ident = "myVar" },
+    }, .value = ast.Expression{
+        .identifier = ast.Identifier{ .token = tkz.Token{ .ident = "anotherVar" } },
+    } } });
+    expected_program.statements = list;
+    try std.testing.expect(std.mem.eql(u8, expected_program.toStr(g_allocator), "let myVar = anotherVar;"));
 }
 
 fn testLetStatement(stmnt: ast.Statement, expect: []const u8) !void {
