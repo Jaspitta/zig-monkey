@@ -3,11 +3,21 @@ const lxr = @import("./lexer.zig");
 const ast = @import("./ast.zig");
 const tkz = @import("./tokenizer.zig");
 
-const Parser = struct {
+pub const Parser = struct {
     lexer: lxr.Lexer,
     curToken: tkz.Token,
     peekToken: tkz.Token,
     errors: *std.ArrayList([]const u8),
+
+    pub const ExpTypes = enum {
+        LOWEST,
+        EQUALS,
+        LESSGREATER,
+        SUM,
+        PRODUCT,
+        PREFIX,
+        CALL,
+    };
 
     pub fn init(lexer: lxr.Lexer, allocator: std.mem.Allocator) !Parser {
         const errors = try allocator.create(std.ArrayList([]const u8));
@@ -49,8 +59,23 @@ const Parser = struct {
         return switch (self.curToken) {
             .let => return self.parseLetStatement(),
             .@"return" => return self.parseReturnStatement(),
-            else => return null,
+            else => return ast.Statement{ .expression_statement = self.parseExpressionStatement() },
         };
+    }
+
+    fn parseExpression(self: Parser, precedence: Parser.ExpTypes) ?ast.Expression {
+        _ = precedence;
+        // maybe I sould build the expression inside prefixParse
+        const idnt = self.curToken.prefixParse(self);
+        if (idnt == null) return null;
+        return ast.Expression{ .identifier = idnt.? };
+    }
+
+    fn parseExpressionStatement(self: *Parser) ast.ExpressionStatement {
+        const stmnt = ast.ExpressionStatement{ .token = self.curToken, .expression = self.parseExpression(ExpTypes.LOWEST) orelse undefined };
+
+        if (self.peekTokenIs(tkz.TokenTag.semicolon)) self.nextToken();
+        return stmnt;
     }
 
     fn parseLetStatement(self: *Parser) ?ast.Statement {
@@ -141,6 +166,24 @@ test {
 }
 
 test {
+    const input = "foobar;";
+
+    var arena_allocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena_allocator.deinit();
+
+    const g_allocator = arena_allocator.allocator();
+
+    var prs = try Parser.init(lxr.Lexer.init(input), g_allocator);
+    const program = try prs.parseProgram(g_allocator);
+    try checkParseErrors(prs);
+    try std.testing.expect(program.statements.items.len == 1);
+    const stmn = program.statements.items[0].expression_statement;
+    const ident = stmn.expression.identifier;
+    try std.testing.expect(std.mem.eql(u8, ident.tokenLiteral(), "foobar"));
+    try std.testing.expect(std.mem.eql(u8, ident.token.ident, "foobar"));
+}
+
+test {
     const input =
         \\ return 5;
         \\ return 10;
@@ -169,6 +212,7 @@ test {
     var arena_allocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena_allocator.deinit();
     const g_allocator = arena_allocator.allocator();
+
     var list = std.ArrayList(ast.Statement).init(g_allocator);
     defer list.deinit();
     try list.append(ast.Statement{ .letStatement = ast.LetStatement{ .token = tkz.Token{ .let = "let" }, .name = ast.Identifier{
@@ -176,7 +220,10 @@ test {
     }, .value = ast.Expression{
         .identifier = ast.Identifier{ .token = tkz.Token{ .ident = "anotherVar" } },
     } } });
+
     expected_program.statements = list;
+
+    // could create the buffer here and pass it instead of allocating on heap
     try std.testing.expect(std.mem.eql(u8, expected_program.toStr(g_allocator), "let myVar = anotherVar;"));
 }
 

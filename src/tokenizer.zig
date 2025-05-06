@@ -1,4 +1,6 @@
 const std = @import("std");
+const ast = @import("./ast.zig");
+const prs = @import("./parser.zig");
 
 pub const TokenTag = enum {
     illegal,
@@ -88,6 +90,13 @@ pub const Token = union(TokenTag) {
             .false => self.false,
             .equal => self.equal,
             .not_equal => self.not_equal,
+        };
+    }
+
+    pub fn prefixParse(self: Token, parser: prs.Parser) ?ast.Identifier {
+        return switch (self) {
+            .ident => return ast.Identifier{ .token = parser.curToken },
+            else => return null,
         };
     }
 };
