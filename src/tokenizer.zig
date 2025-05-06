@@ -93,9 +93,19 @@ pub const Token = union(TokenTag) {
         };
     }
 
-    pub fn prefixParse(self: Token, parser: prs.Parser) ?ast.Identifier {
+    pub fn prefixParse(self: Token, parser: prs.Parser) !?ast.Expression {
         return switch (self) {
-            .ident => return ast.Identifier{ .token = parser.curToken },
+            .ident => return ast.Expression{ .identifier = ast.Identifier{ .token = parser.curToken } },
+            .int => {
+                var lit = ast.Expression{ .integer_literal = ast.IntegerLiteral{ .token = parser.curToken, .value = undefined } };
+                const int = std.fmt.parseInt(u64, parser.curToken.int, 10) catch {
+                    try parser.errors.*.append(try std.fmt.allocPrint(parser.errors.*.allocator, "could not parse {s} as u64", .{parser.curToken.int}));
+                    return null;
+                };
+
+                lit.integer_literal.value = int;
+                return lit;
+            },
             else => return null,
         };
     }

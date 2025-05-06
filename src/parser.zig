@@ -66,9 +66,9 @@ pub const Parser = struct {
     fn parseExpression(self: Parser, precedence: Parser.ExpTypes) ?ast.Expression {
         _ = precedence;
         // maybe I sould build the expression inside prefixParse
-        const idnt = self.curToken.prefixParse(self);
-        if (idnt == null) return null;
-        return ast.Expression{ .identifier = idnt.? };
+        return self.curToken.prefixParse(self) catch {
+            return null;
+        };
     }
 
     fn parseExpressionStatement(self: *Parser) ast.ExpressionStatement {
@@ -140,6 +140,23 @@ pub const Parser = struct {
     // fn prefixParseFn(self: Parser, token: tkz.Token) ast.Expression {}
     // fn infixParseFn(self: Parser, left_side: ast.Expression, token: tkz.Token) ast.Expression {}
 };
+
+test {
+    const input = "5;";
+    const lex = lxr.Lexer.init(input);
+    var page_allocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer page_allocator.deinit();
+    const g_allocator = page_allocator.allocator();
+
+    var prs = try Parser.init(lex, g_allocator);
+    const prg = try prs.parseProgram(g_allocator);
+
+    try std.testing.expect(prg.statements.items.len == 1);
+    const expr_stmnt = prg.statements.items[0].expression_statement;
+    const literal = expr_stmnt.expression.integer_literal;
+    try std.testing.expect(literal.value == 5);
+    try std.testing.expect(std.mem.eql(u8, literal.tokenLiteral(), "5"));
+}
 
 test {
     const input =
