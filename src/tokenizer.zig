@@ -61,26 +61,30 @@ pub const Token = union(TokenTag) {
     equal: []const u8,
     not_equal: []const u8,
 
+    // this could hold the value of u8 fields
+    // i could than return a slice to/of this
+    // var holder: [1]u8 = undefined;
+
     pub fn literal(self: Token) []const u8 {
         return switch (self) {
             .illegal => &[1]u8{self.illegal},
-            .eof => &[1]u8{self.eof},
+            .eof => &[1]u8{0},
             .ident => self.ident,
             .int => self.int,
-            .assign => &[1]u8{self.assign},
-            .plus => &[1]u8{self.plus},
-            .minus => &[1]u8{self.minus},
-            .bang => &[1]u8{self.bang},
-            .asterisk => &[1]u8{self.asterisk},
-            .slash => &[1]u8{self.slash},
-            .lt => &[1]u8{self.lt},
-            .gt => &[1]u8{self.gt},
-            .comma => &[1]u8{self.comma},
-            .semicolon => &[1]u8{self.semicolon},
-            .lparent => &[1]u8{self.lparent},
-            .rparent => &[1]u8{self.rparent},
-            .lbrace => &[1]u8{self.lbrace},
-            .rbrace => &[1]u8{self.rbrace},
+            .assign => "=",
+            .plus => "+",
+            .minus => "-",
+            .bang => "!",
+            .asterisk => "*",
+            .slash => "/",
+            .lt => "<",
+            .gt => ">",
+            .comma => ",",
+            .semicolon => ";",
+            .lparent => "(",
+            .rparent => ")",
+            .lbrace => "{",
+            .rbrace => "}",
             .function => self.function,
             .let => self.let,
             .@"if" => self.@"if",
@@ -93,7 +97,7 @@ pub const Token = union(TokenTag) {
         };
     }
 
-    pub fn prefixParse(self: Token, parser: prs.Parser) !?ast.Expression {
+    pub fn prefixParse(self: Token, parser: *prs.Parser) !?ast.Expression {
         return switch (self) {
             .ident => return ast.Expression{ .identifier = ast.Identifier{ .token = parser.curToken } },
             .int => {
@@ -105,6 +109,22 @@ pub const Token = union(TokenTag) {
 
                 lit.integer_literal.value = int;
                 return lit;
+            },
+            .bang, .minus => {
+                var expr = ast.Expression{
+                    .prefix_expression = ast.PrefixExpression{
+                        .token = parser.curToken,
+                        // .operator = parser.curToken.literal(),
+                        .right = undefined,
+                        .allocator = parser.allocator,
+                    },
+                };
+
+                parser.nextToken();
+                const right = try std.mem.Allocator.create(expr.prefix_expression.allocator, ast.Expression);
+                right.* = parser.parseExpression(prs.Parser.ExpTypes.PREFIX) orelse undefined;
+                expr.prefix_expression.right = right;
+                return expr;
             },
             else => return null,
         };

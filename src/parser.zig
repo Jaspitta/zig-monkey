@@ -8,6 +8,7 @@ pub const Parser = struct {
     curToken: tkz.Token,
     peekToken: tkz.Token,
     errors: *std.ArrayList([]const u8),
+    allocator: std.mem.Allocator,
 
     pub const ExpTypes = enum {
         LOWEST,
@@ -27,6 +28,7 @@ pub const Parser = struct {
             .curToken = undefined,
             .peekToken = undefined,
             .errors = errors,
+            .allocator = allocator,
         };
 
         // setting both current and next token
@@ -36,13 +38,13 @@ pub const Parser = struct {
         return parser;
     }
 
-    fn nextToken(self: *Parser) void {
+    pub fn nextToken(self: *Parser) void {
         self.curToken = self.peekToken;
         self.peekToken = self.lexer.nextToken();
     }
 
-    pub fn parseProgram(self: *Parser, allocator: std.mem.Allocator) !ast.Program {
-        var program = ast.Program{ .statements = std.ArrayList(ast.Statement).init(allocator) };
+    pub fn parseProgram(self: *Parser) !ast.Program {
+        var program = ast.Program{ .statements = std.ArrayList(ast.Statement).init(self.allocator) };
 
         // could also use @as here, if there is an impactful difference in speed/memory
         while (@intFromEnum(self.curToken) != @intFromEnum(tkz.TokenTag.eof)) {
@@ -63,10 +65,13 @@ pub const Parser = struct {
         };
     }
 
-    fn parseExpression(self: Parser, precedence: Parser.ExpTypes) ?ast.Expression {
+    pub fn parseExpression(self: *Parser, precedence: Parser.ExpTypes) ?ast.Expression {
         _ = precedence;
         // maybe I sould build the expression inside prefixParse
         return self.curToken.prefixParse(self) catch {
+            self.errors.append(std.fmt.allocPrint(self.allocator, "no prefix parse function for {}", .{self.curToken}) catch {
+                return null;
+            }) catch {};
             return null;
         };
     }
@@ -142,6 +147,37 @@ pub const Parser = struct {
 };
 
 test {
+    const Expected = struct { input: []const u8, operator: []const u8, integer_value: u64 };
+
+    var expected: [2]Expected = undefined;
+    expected[0] = Expected{
+        .input = "!5;",
+        .operator = "!",
+        .integer_value = 5,
+    };
+    expected[1] = Expected{
+        .input = "-15;",
+        .operator = "-",
+        .integer_value = 15,
+    };
+
+    var a_alloc = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer a_alloc.deinit();
+    const g_alloc = a_alloc.allocator();
+    for (expected) |expect| {
+        const lexer = lxr.Lexer.init(expect.input);
+        var parser = try Parser.init(lexer, g_alloc);
+        const program = try parser.parseProgram();
+        try checkParseErrors(parser);
+        try std.testing.expect(program.statements.items.len == 1);
+        const expr = program.statements.items[0].expression_statement;
+        const prfx_expr = expr.expression.prefix_expression;
+        try std.testing.expect(std.mem.eql(u8, prfx_expr.token.literal(), expect.operator));
+        try std.testing.expect(prfx_expr.right.integer_literal.value == expect.integer_value);
+    }
+}
+
+test {
     const input = "5;";
     const lex = lxr.Lexer.init(input);
     var page_allocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -149,13 +185,14 @@ test {
     const g_allocator = page_allocator.allocator();
 
     var prs = try Parser.init(lex, g_allocator);
-    const prg = try prs.parseProgram(g_allocator);
+    const prg = try prs.parseProgram();
 
     try std.testing.expect(prg.statements.items.len == 1);
     const expr_stmnt = prg.statements.items[0].expression_statement;
     const literal = expr_stmnt.expression.integer_literal;
     try std.testing.expect(literal.value == 5);
     try std.testing.expect(std.mem.eql(u8, literal.tokenLiteral(), "5"));
+    try checkParseErrors(prs);
 }
 
 test {
@@ -173,7 +210,7 @@ test {
     const lex = lxr.Lexer.init(input);
     var prs = try Parser.init(lex, g_allocator);
 
-    const program = try prs.parseProgram(g_allocator);
+    const program = try prs.parseProgram();
     if (program.statements.items.len != 3) try std.testing.expect(false);
 
     const expected = [_][]const u8{ "x", "y", "foobar" };
@@ -191,7 +228,7 @@ test {
     const g_allocator = arena_allocator.allocator();
 
     var prs = try Parser.init(lxr.Lexer.init(input), g_allocator);
-    const program = try prs.parseProgram(g_allocator);
+    const program = try prs.parseProgram();
     try checkParseErrors(prs);
     try std.testing.expect(program.statements.items.len == 1);
     const stmn = program.statements.items[0].expression_statement;
@@ -215,7 +252,7 @@ test {
     const lex = lxr.Lexer.init(input);
     var prs = try Parser.init(lex, g_allocator);
 
-    const program = try prs.parseProgram(g_allocator);
+    const program = try prs.parseProgram();
     if (program.statements.items.len != 3) try std.testing.expect(false);
 
     for (program.statements.items) |stmnt| try std.testing.expect(std.mem.eql(u8, stmnt.tokenLiteral(), "return"));

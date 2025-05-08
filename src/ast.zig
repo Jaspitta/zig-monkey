@@ -57,6 +57,7 @@ pub const Statement = union(enum) {
 pub const Expression = union(enum) {
     identifier: Identifier,
     integer_literal: IntegerLiteral,
+    prefix_expression: PrefixExpression,
 
     pub fn tokenLiteral(self: Expression) []const u8 {
         switch (self) {
@@ -68,6 +69,33 @@ pub const Expression = union(enum) {
         switch (self) {
             inline else => |case| return case.toStr(),
         }
+    }
+};
+
+pub const PrefixExpression = struct {
+    token: tkz.Token,
+    // operator: []const u8,
+    right: *Expression,
+    // size can not be know at compile time
+    allocator: std.mem.Allocator,
+
+    pub fn tokenLiteral(self: PrefixExpression) []const u8 {
+        return self.token.literal();
+    }
+
+    pub fn toStr(self: PrefixExpression) []const u8 {
+        var i: usize = 0;
+        const right_str = self.right.*.toStr();
+        const operator_str = self.token.literal();
+        var buffer = self.allocator.alloc(u8, 1 + operator_str.len + right_str.len + 1) catch return "";
+        std.mem.copyForwards(u8, buffer[i..], "(");
+        i += 1;
+        std.mem.copyForwards(u8, buffer[i..], operator_str);
+        i += operator_str.len;
+        std.mem.copyForwards(u8, buffer[i..], right_str);
+        i += right_str.len;
+        std.mem.copyForwards(u8, buffer[i..], ")");
+        return buffer;
     }
 };
 
@@ -133,6 +161,7 @@ pub const LetStatement = struct {
     }
 
     // Why does this not get lost when return from the stack?
+    // maybe because size is known at compile time but I am not sure
     pub fn toStr(self: LetStatement) []const u8 {
         var i: u16 = 0;
         var resp: [1024]u8 = undefined;
@@ -186,7 +215,6 @@ pub const ReturnStatement = struct {
             i += 1;
         }
         resp[i] = ';';
-        std.debug.print("from return statement: {s}\n", .{resp[0..i]});
         return resp[0..i];
     }
 };
@@ -200,7 +228,6 @@ pub const ExpressionStatement = struct {
     }
 
     pub fn toStr(self: ExpressionStatement) []const u8 {
-        std.debug.print("from expression statement: {s}\n", .{self.expression.toStr()});
         return self.expression.toStr();
     }
 };
