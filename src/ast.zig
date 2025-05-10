@@ -58,6 +58,7 @@ pub const Expression = union(enum) {
     identifier: Identifier,
     integer_literal: IntegerLiteral,
     prefix_expression: PrefixExpression,
+    infix_expression: InfixExpression,
 
     pub fn tokenLiteral(self: Expression) []const u8 {
         switch (self) {
@@ -69,6 +70,43 @@ pub const Expression = union(enum) {
         switch (self) {
             inline else => |case| return case.toStr(),
         }
+    }
+};
+
+pub const InfixExpression = struct {
+    token: tkz.Token,
+    right: *Expression,
+    left: *Expression,
+    allocator: std.mem.Allocator,
+
+    pub fn tokenLiteral(self: InfixExpression) []const u8 {
+        return self.token.literal();
+    }
+
+    pub fn toStr(self: InfixExpression) []const u8 {
+        var i: usize = 0;
+
+        // strs to append for size
+        const right_str = self.right.*.toStr();
+        const operator_str = self.token.literal();
+        const left_str = self.left.*.toStr();
+
+        // buffer with fixed size
+        var buffer = self.allocator.alloc(u8, 1 + left_str.len + 1 + operator_str.len + 1 + right_str.len + 1) catch return "";
+        std.mem.copyForwards(u8, buffer[i..], "(");
+        i += 1;
+        std.mem.copyForwards(u8, buffer[i..], left_str);
+        i += left_str.len;
+        std.mem.copyForwards(u8, buffer[i..], " ");
+        i += left_str.len;
+        std.mem.copyForwards(u8, buffer[i..], operator_str);
+        i += operator_str.len;
+        std.mem.copyForwards(u8, buffer[i..], " ");
+        i += left_str.len;
+        std.mem.copyForwards(u8, buffer[i..], right_str);
+        i += right_str.len;
+        std.mem.copyForwards(u8, buffer[i..], ")");
+        return buffer;
     }
 };
 

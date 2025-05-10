@@ -66,14 +66,45 @@ pub const Parser = struct {
     }
 
     pub fn parseExpression(self: *Parser, precedence: Parser.ExpTypes) ?ast.Expression {
-        _ = precedence;
         // maybe I sould build the expression inside prefixParse
-        return self.curToken.prefixParse(self) catch {
+
+        if (!self.curToken.isPrefixCandidate()) return null;
+
+        // var because it needs to be swapped with the child,
+        var left_parent = self.allocator.create(ast.Expression) catch {
+            return null;
+        };
+        left_parent.* = self.curToken.prefixParse(self) catch {
             self.errors.append(std.fmt.allocPrint(self.allocator, "no prefix parse function for {}", .{self.curToken}) catch {
                 return null;
             }) catch {};
             return null;
-        };
+        } orelse return null;
+
+        while (!self.peekTokenIs(tkz.TokenTag.semicolon) and @intFromEnum(precedence) < @intFromEnum(self.peekPrecedence())) {
+            if (!self.peekToken.isInfixCandidate()) return left_parent.*;
+
+            self.nextToken();
+            // not sure if var is necessary,
+            // in the case of recusive expression I might
+            // have to use the child as the child of something else
+            // and the const could make problems
+            var left_child = self.allocator.create(ast.Expression) catch {
+                return left_parent.*;
+            };
+            _ = &left_child;
+
+            left_child.* = self.curToken.infixParse(self, left_parent) catch {
+                return null;
+            } orelse return null;
+
+            // I am swapping the pointers not the content,
+            // otherwise I would crete problems because the
+            // parent is passed as left of the child above
+            left_parent = left_child;
+        }
+
+        return left_parent.*;
     }
 
     fn parseExpressionStatement(self: *Parser) ast.ExpressionStatement {
@@ -142,9 +173,100 @@ pub const Parser = struct {
         try self.errors.*.append(try std.fmt.allocPrint(self.errors.*.allocator, "expected tag was {} but found {}", .{ expected, curr_tag }));
     }
 
-    // fn prefixParseFn(self: Parser, token: tkz.Token) ast.Expression {}
-    // fn infixParseFn(self: Parser, left_side: ast.Expression, token: tkz.Token) ast.Expression {}
+    pub fn peekPrecedence(self: Parser) ExpTypes {
+        return self.peekToken.precedence();
+    }
+
+    pub fn curPrecedence(self: Parser) ExpTypes {
+        return self.curToken.precedence();
+    }
 };
+
+test {
+    const Expected = struct {
+        input: []const u8,
+        left: u64,
+        operator: []const u8,
+        right: u64,
+    };
+
+    var expected: [8]Expected = undefined;
+    expected[0] = Expected{
+        .input = "5 + 5;",
+        .left = 5,
+        .operator = "+",
+        .right = 5,
+    };
+    expected[1] = Expected{
+        .input = "5 - 5;",
+        .left = 5,
+        .operator = "-",
+        .right = 5,
+    };
+    expected[2] = Expected{
+        .input = "5 * 5;",
+        .left = 5,
+        .operator = "*",
+        .right = 5,
+    };
+    expected[3] = Expected{
+        .input = "5 / 5;",
+        .left = 5,
+        .operator = "/",
+        .right = 5,
+    };
+    expected[4] = Expected{
+        .input = "5 > 5;",
+        .left = 5,
+        .operator = ">",
+        .right = 5,
+    };
+    expected[5] = Expected{
+        .input = "5 < 5;",
+        .left = 5,
+        .operator = "<",
+        .right = 5,
+    };
+    expected[6] = Expected{
+        .input = "5 == 5;",
+        .left = 5,
+        .operator = "==",
+        .right = 5,
+    };
+    expected[7] = Expected{
+        .input = "5 != 5;",
+        .left = 5,
+        .operator = "!=",
+        .right = 5,
+    };
+
+    for (expected) |expect| {
+        // alloc init
+        var a_alloc = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+        const g_alloc = a_alloc.allocator();
+        defer a_alloc.deinit();
+
+        // program parsing
+        const l = lxr.Lexer.init(expect.input);
+        var prs = try Parser.init(l, g_alloc);
+        const prg = try prs.parseProgram();
+
+        // checks
+        try checkParseErrors(prs);
+        try std.testing.expect(prg.statements.items.len == 1);
+
+        // epxression
+        const expr_stmnt = prg.statements.items[0].expression_statement;
+        const inf_expr = expr_stmnt.expression.infix_expression;
+
+        // test value
+        try std.testing.expect(inf_expr.right.*.integer_literal.value == expect.right);
+        try std.testing.expect(inf_expr.left.*.integer_literal.value == expect.left);
+
+        // test operator
+        try std.testing.expect(std.mem.eql(u8, inf_expr.token.literal(), expect.operator));
+    }
+}
 
 test {
     const Expected = struct { input: []const u8, operator: []const u8, integer_value: u64 };

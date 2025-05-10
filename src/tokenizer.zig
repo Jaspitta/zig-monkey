@@ -97,9 +97,33 @@ pub const Token = union(TokenTag) {
         };
     }
 
+    // define precedence in expressions
+    pub fn precedence(self: Token) prs.Parser.ExpTypes {
+        return switch (self) {
+            .equal => prs.Parser.ExpTypes.EQUALS,
+            .not_equal => prs.Parser.ExpTypes.EQUALS,
+            .lt => prs.Parser.ExpTypes.LESSGREATER,
+            .gt => prs.Parser.ExpTypes.LESSGREATER,
+            .plus => prs.Parser.ExpTypes.SUM,
+            .minus => prs.Parser.ExpTypes.SUM,
+            .slash => prs.Parser.ExpTypes.PRODUCT,
+            .asterisk => prs.Parser.ExpTypes.PRODUCT,
+            else => prs.Parser.ExpTypes.LOWEST,
+        };
+    }
+
+    pub fn isPrefixCandidate(self: Token) bool {
+        return switch (self) {
+            .ident, .int, .bang, .minus => return true,
+            else => return false,
+        };
+    }
+
     pub fn prefixParse(self: Token, parser: *prs.Parser) !?ast.Expression {
         return switch (self) {
-            .ident => return ast.Expression{ .identifier = ast.Identifier{ .token = parser.curToken } },
+            .ident => return {
+                return ast.Expression{ .identifier = ast.Identifier{ .token = parser.curToken } };
+            },
             .int => {
                 var lit = ast.Expression{ .integer_literal = ast.IntegerLiteral{ .token = parser.curToken, .value = undefined } };
                 const int = std.fmt.parseInt(u64, parser.curToken.int, 10) catch {
@@ -107,6 +131,8 @@ pub const Token = union(TokenTag) {
                     return null;
                 };
 
+                // the first 5 in 5+5;
+                // the second 5 in 5+5;
                 lit.integer_literal.value = int;
                 return lit;
             },
@@ -127,6 +153,41 @@ pub const Token = union(TokenTag) {
                 return expr;
             },
             else => return null,
+        };
+    }
+
+    pub fn infixParse(self: Token, parser: *prs.Parser, left: *ast.Expression) !?ast.Expression {
+        return switch (self) {
+            .plus, .minus, .slash, .asterisk, .equal, .not_equal, .lt, .gt => {
+                var expr = ast.Expression{
+                    .infix_expression = ast.InfixExpression{
+                        .token = parser.curToken,
+                        // left is the integer_literal with the first five
+                        .left = left,
+                        .right = undefined,
+                        .allocator = parser.allocator,
+                    },
+                };
+
+                const prec = parser.curPrecedence();
+                parser.nextToken(); //5;
+
+                const right_alloc = try parser.allocator.create(ast.Expression); // this is the second left
+                const right = parser.parseExpression(prec) orelse undefined;
+                right_alloc.* = right;
+
+                expr.infix_expression.right = right_alloc;
+
+                return expr;
+            },
+            else => return null,
+        };
+    }
+
+    pub fn isInfixCandidate(self: Token) bool {
+        return switch (self) {
+            .plus, .minus, .slash, .asterisk, .equal, .not_equal, .lt, .gt => return true,
+            else => return false,
         };
     }
 };
