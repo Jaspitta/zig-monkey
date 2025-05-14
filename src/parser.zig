@@ -66,14 +66,13 @@ pub const Parser = struct {
     }
 
     pub fn parseExpression(self: *Parser, precedence: Parser.ExpTypes) ?ast.Expression {
-        // maybe I sould build the expression inside prefixParse
-
         if (!self.curToken.isPrefixCandidate()) return null;
 
-        // var because it needs to be swapped with the child,
+        // var because it needs to be swapped with the child, for infix expression
         var left_parent = self.allocator.create(ast.Expression) catch {
             return null;
         };
+
         left_parent.* = self.curToken.prefixParse(self) catch {
             self.errors.append(std.fmt.allocPrint(self.allocator, "no prefix parse function for {}", .{self.curToken}) catch {
                 return null;
@@ -85,14 +84,10 @@ pub const Parser = struct {
             if (!self.peekToken.isInfixCandidate()) return left_parent.*;
 
             self.nextToken();
-            // not sure if var is necessary,
-            // in the case of recusive expression I might
-            // have to use the child as the child of something else
-            // and the const could make problems
-            var left_child = self.allocator.create(ast.Expression) catch {
+
+            const left_child = self.allocator.create(ast.Expression) catch {
                 return left_parent.*;
             };
-            _ = &left_child;
 
             left_child.* = self.curToken.infixParse(self, left_parent) catch {
                 return null;
@@ -181,6 +176,52 @@ pub const Parser = struct {
         return self.curToken.precedence();
     }
 };
+
+test {
+    const Expected = struct {
+        input: []const u8,
+        str: []const u8,
+    };
+
+    var expected: [5]Expected = undefined;
+
+    expected[0] = Expected{
+        .input = "-a * b",
+        .str = "((-a) * b)",
+    };
+    expected[1] = Expected{
+        .input = "!-a",
+        .str = "(!(-a))",
+    };
+    expected[2] = Expected{
+        .input = "3 + 4; -5 * 5",
+        .str = "(3 + 4)((-5) * 5)",
+    };
+    expected[3] = Expected{
+        .input = "5 > 4 == 3 < 4",
+        .str = "((5 > 4) == (3 < 4))",
+    };
+    expected[4] = Expected{
+        .input = "3 + 4 * 5 == 3 * 1 + 4 * 5",
+        .str = "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
+    };
+
+    for (expected) |expect| {
+        // alloc init
+        var a_alloc = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+        const g_alloc = a_alloc.allocator();
+        defer a_alloc.deinit();
+
+        // program parsing
+        const l = lxr.Lexer.init(expect.input);
+        var prs = try Parser.init(l, g_alloc);
+        const prg = try prs.parseProgram();
+
+        // checks
+        try checkParseErrors(prs);
+        try std.testing.expect(std.mem.eql(u8, prg.toStr(g_alloc), expect.str));
+    }
+}
 
 test {
     const Expected = struct {

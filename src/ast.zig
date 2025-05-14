@@ -98,11 +98,11 @@ pub const InfixExpression = struct {
         std.mem.copyForwards(u8, buffer[i..], left_str);
         i += left_str.len;
         std.mem.copyForwards(u8, buffer[i..], " ");
-        i += left_str.len;
+        i += 1;
         std.mem.copyForwards(u8, buffer[i..], operator_str);
         i += operator_str.len;
         std.mem.copyForwards(u8, buffer[i..], " ");
-        i += left_str.len;
+        i += 1;
         std.mem.copyForwards(u8, buffer[i..], right_str);
         i += right_str.len;
         std.mem.copyForwards(u8, buffer[i..], ")");
