@@ -151,7 +151,7 @@ pub const Parser = struct {
         return actualEnum == tokenTag;
     }
 
-    fn expectPeek(self: *Parser, tokenTag: tkz.TokenTag) bool {
+    pub fn expectPeek(self: *Parser, tokenTag: tkz.TokenTag) bool {
         if (self.peekTokenIs(tokenTag)) {
             self.nextToken();
             return true;
@@ -177,6 +177,106 @@ pub const Parser = struct {
     }
 };
 
+// TODO: much of these tests could be cleaned up with some extra utility functions,
+// but I do not care right now, for the time being it is faster to copy paste
+//
+// I am already regretting it...
+test {
+    const input = "if (x < y) { x }";
+    const lexer = lxr.Lexer.init(input);
+
+    const a_alloc = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    const g_alloc = a_alloc.allocator();
+    defer a_alloc.deinit();
+
+    const parser = try Parser.init(lexer, g_alloc);
+    const program = try parser.parseProgram();
+
+    std.testing.expect(program.statements.items.len == 1);
+    const if_expression = program.statements.items[0].expression_statement.expression.if_expression;
+}
+
+test {
+    const Expected = struct { input: []const u8, operator: []const u8, value: bool };
+
+    var expected: [2]Expected = undefined;
+    expected[0] = Expected{
+        .input = "!true;",
+        .operator = "!",
+        .value = true,
+    };
+    expected[1] = Expected{
+        .input = "!false;",
+        .operator = "!",
+        .value = false,
+    };
+
+    var a_alloc = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer a_alloc.deinit();
+    const g_alloc = a_alloc.allocator();
+    for (expected) |expect| {
+        const lexer = lxr.Lexer.init(expect.input);
+        var parser = try Parser.init(lexer, g_alloc);
+        const program = try parser.parseProgram();
+        try checkParseErrors(parser);
+        try std.testing.expect(program.statements.items.len == 1);
+        const expr = program.statements.items[0].expression_statement;
+        const prfx_expr = expr.expression.prefix_expression;
+        try std.testing.expect(std.mem.eql(u8, prfx_expr.token.literal(), expect.operator));
+        try std.testing.expect(prfx_expr.right.boolean.value == expect.value);
+    }
+}
+
+test {
+    const Expected = struct {
+        input: []const u8,
+        left: bool,
+        operator: []const u8,
+        right: bool,
+    };
+
+    var expected: [2]Expected = undefined;
+    expected[0] = Expected{
+        .input = "true == true",
+        .left = true,
+        .operator = "==",
+        .right = true,
+    };
+    expected[1] = Expected{
+        .input = "true != false",
+        .left = true,
+        .operator = "!=",
+        .right = false,
+    };
+
+    for (expected) |expect| {
+        // alloc init
+        var a_alloc = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+        const g_alloc = a_alloc.allocator();
+        defer a_alloc.deinit();
+
+        // program parsing
+        const l = lxr.Lexer.init(expect.input);
+        var prs = try Parser.init(l, g_alloc);
+        const prg = try prs.parseProgram();
+
+        // checks
+        try checkParseErrors(prs);
+        try std.testing.expect(prg.statements.items.len == 1);
+
+        // epxression
+        const expr_stmnt = prg.statements.items[0].expression_statement;
+        const inf_expr = expr_stmnt.expression.infix_expression;
+
+        // test value
+        try std.testing.expect(inf_expr.right.*.boolean.value == expect.right);
+        try std.testing.expect(inf_expr.left.*.boolean.value == expect.left);
+
+        // test operator
+        try std.testing.expect(std.mem.eql(u8, inf_expr.token.literal(), expect.operator));
+    }
+}
+
 test {
     const Expected = struct {
         input: []const u8,
@@ -184,6 +284,51 @@ test {
     };
 
     var expected: [5]Expected = undefined;
+    expected[0] = Expected{
+        .input = "true;",
+        .str = "true",
+    };
+    expected[1] = Expected{
+        .input = "false;",
+        .str = "false",
+    };
+    expected[2] = Expected{
+        .input = "3 > 5 == false;",
+        .str = "((3 > 5) == false)",
+    };
+    expected[3] = Expected{
+        .input = "3 < 5 == true;",
+        .str = "((3 < 5) == true)",
+    };
+    expected[4] = Expected{
+        .input = "!(true == true)",
+        .str = "(!(true == true))",
+    };
+
+    for (expected) |expect| {
+        // alloc init
+        var a_alloc = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+        const g_alloc = a_alloc.allocator();
+        defer a_alloc.deinit();
+
+        // program parsing
+        const l = lxr.Lexer.init(expect.input);
+        var prs = try Parser.init(l, g_alloc);
+        const prg = try prs.parseProgram();
+
+        // checks
+        try checkParseErrors(prs);
+        try std.testing.expect(std.mem.eql(u8, prg.toStr(g_alloc), expect.str));
+    }
+}
+
+test {
+    const Expected = struct {
+        input: []const u8,
+        str: []const u8,
+    };
+
+    var expected: [8]Expected = undefined;
 
     expected[0] = Expected{
         .input = "-a * b",
@@ -204,6 +349,18 @@ test {
     expected[4] = Expected{
         .input = "3 + 4 * 5 == 3 * 1 + 4 * 5",
         .str = "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
+    };
+    expected[5] = Expected{
+        .input = "1 + (2 + 3) + 4",
+        .str = "((1 + (2 + 3)) + 4)",
+    };
+    expected[6] = Expected{
+        .input = "(5 + 5) * 2",
+        .str = "((5 + 5) * 2)",
+    };
+    expected[7] = Expected{
+        .input = "-(5 + 5)",
+        .str = "(-(5 + 5))",
     };
 
     for (expected) |expect| {

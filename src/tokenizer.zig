@@ -114,7 +114,14 @@ pub const Token = union(TokenTag) {
 
     pub fn isPrefixCandidate(self: Token) bool {
         return switch (self) {
-            .ident, .int, .bang, .minus => return true,
+            .ident,
+            .int,
+            .bang,
+            .minus,
+            .true,
+            .false,
+            .lparent,
+            => return true,
             else => return false,
         };
     }
@@ -151,6 +158,21 @@ pub const Token = union(TokenTag) {
                 right.* = parser.parseExpression(prs.Parser.ExpTypes.PREFIX) orelse undefined;
                 expr.prefix_expression.right = right;
                 return expr;
+            },
+            .true => {
+                // std.debug.print("parsing a true", .{});
+                return ast.Expression{ .boolean = ast.Boolean{ .token = parser.curToken, .value = true } };
+            },
+            .false => {
+                // std.debug.print("parsing a false", .{});
+                return ast.Expression{ .boolean = ast.Boolean{ .token = parser.curToken, .value = false } };
+            },
+            .lparent => {
+                parser.nextToken();
+                const exp = parser.parseExpression(prs.Parser.ExpTypes.LOWEST);
+                if (parser.expectPeek(TokenTag.rparent)) return exp;
+
+                return null;
             },
             else => return null,
         };

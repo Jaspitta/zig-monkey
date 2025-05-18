@@ -30,6 +30,7 @@ pub const Statement = union(enum) {
     letStatement: LetStatement,
     return_statement: ReturnStatement,
     expression_statement: ExpressionStatement,
+    block_statement: BlockStatement,
 
     pub fn tokenLiteral(self: Statement) []const u8 {
         switch (self) {
@@ -41,6 +42,37 @@ pub const Statement = union(enum) {
         switch (self) {
             inline else => |case| return case.toStr(),
         }
+    }
+};
+
+const BlockStatement = struct {
+    token: tkz.Token,
+    statements: []Statement,
+    allocator: std.mem.Allocator,
+
+    fn tokenLiteral(self: BlockStatement) []const u8 {
+        return self.token.literal();
+    }
+
+    fn toStr(self: BlockStatement) []const u8 {
+        var capacity: usize = 1024;
+        var length: usize = 0;
+
+        const buffer = self.allocator.alloc(u8, capacity) catch return "";
+        for (self.statements) |statement| {
+            const statement_str = statement.toStr();
+            if (length + statement_str.len > capacity) {
+                capacity = capacity * 2;
+                const ext_buffer = self.allocator.alloc(u8, capacity);
+                std.mem.copyForwards(u8, ext_buffer, buffer);
+                self.allocator.destroy(buffer);
+                buffer = ext_buffer;
+            }
+            std.mem.copyForwards(u8, buffer[length..], statement_str);
+            length += statement_str;
+        }
+
+        return buffer[0..length];
     }
 };
 
@@ -59,6 +91,8 @@ pub const Expression = union(enum) {
     integer_literal: IntegerLiteral,
     prefix_expression: PrefixExpression,
     infix_expression: InfixExpression,
+    boolean: Boolean,
+    if_expression: IfExpression,
 
     pub fn tokenLiteral(self: Expression) []const u8 {
         switch (self) {
@@ -70,6 +104,54 @@ pub const Expression = union(enum) {
         switch (self) {
             inline else => |case| return case.toStr(),
         }
+    }
+};
+
+pub const IfExpression = struct {
+    token: tkz.Token,
+    condition: Expression,
+    consequence: BlockStatement,
+    alternative: ?BlockStatement,
+    allocator: std.mem.Allocator,
+
+    pub fn tokenLiteral(self: IfExpression) []const u8 {
+        return self.token.literal();
+    }
+
+    pub fn toStr(self: IfExpression) []const u8 {
+        var i: usize = 0;
+
+        const condition_str = self.condition.toStr();
+        const consequence_str = self.consequence.literal();
+        const alternative_str: ?[]const u8 = if (self.alternative.? != null) self.alternative.toStr() else null;
+
+        var size = 2 + condition_str.len + 1 + consequence_str.len;
+        if (alternative_str.? != null) size = size + 5 + self.alternative.toStr().len;
+
+        var buffer = self.allocator.alloc(u8, size) catch return "";
+        std.mem.copyForwards(u8, buffer[i..], "if");
+        i += 2;
+        std.mem.copyForwards(u8, buffer[i..], consequence_str);
+        i += consequence_str.len;
+        if (alternative_str.? != null) {
+            std.mem.copyForwards(u8, buffer[i..], "else ");
+            i += 5;
+            std.mem.copyForwards(u8, buffer[i..], alternative_str);
+        }
+        return buffer;
+    }
+};
+
+pub const Boolean = struct {
+    token: tkz.Token,
+    value: bool,
+
+    fn tokenLiteral(self: Boolean) []const u8 {
+        return self.token.literal();
+    }
+
+    fn toStr(self: Boolean) []const u8 {
+        if (self.value) return "true" else return "false";
     }
 };
 
