@@ -58,18 +58,18 @@ const BlockStatement = struct {
         var capacity: usize = 1024;
         var length: usize = 0;
 
-        const buffer = self.allocator.alloc(u8, capacity) catch return "";
+        var buffer = self.allocator.alloc(u8, capacity) catch return "";
         for (self.statements) |statement| {
             const statement_str = statement.toStr();
             if (length + statement_str.len > capacity) {
                 capacity = capacity * 2;
-                const ext_buffer = self.allocator.alloc(u8, capacity);
+                const ext_buffer = self.allocator.alloc(u8, capacity) catch return "";
                 std.mem.copyForwards(u8, ext_buffer, buffer);
                 self.allocator.destroy(buffer);
                 buffer = ext_buffer;
             }
             std.mem.copyForwards(u8, buffer[length..], statement_str);
-            length += statement_str;
+            length += statement_str.len;
         }
 
         return buffer[0..length];
@@ -109,7 +109,7 @@ pub const Expression = union(enum) {
 
 pub const IfExpression = struct {
     token: tkz.Token,
-    condition: Expression,
+    condition: *Expression,
     consequence: BlockStatement,
     alternative: ?BlockStatement,
     allocator: std.mem.Allocator,
@@ -121,22 +121,22 @@ pub const IfExpression = struct {
     pub fn toStr(self: IfExpression) []const u8 {
         var i: usize = 0;
 
-        const condition_str = self.condition.toStr();
-        const consequence_str = self.consequence.literal();
-        const alternative_str: ?[]const u8 = if (self.alternative.? != null) self.alternative.toStr() else null;
+        const condition_str = self.condition.*.toStr();
+        const consequence_str = self.consequence.token.literal();
+        const alternative_str: ?[]const u8 = if (self.alternative != null) self.alternative.?.toStr() else null;
 
         var size = 2 + condition_str.len + 1 + consequence_str.len;
-        if (alternative_str.? != null) size = size + 5 + self.alternative.toStr().len;
+        if (alternative_str != null) size = size + 5 + self.alternative.?.toStr().len;
 
         var buffer = self.allocator.alloc(u8, size) catch return "";
         std.mem.copyForwards(u8, buffer[i..], "if");
         i += 2;
         std.mem.copyForwards(u8, buffer[i..], consequence_str);
         i += consequence_str.len;
-        if (alternative_str.? != null) {
+        if (alternative_str != null) {
             std.mem.copyForwards(u8, buffer[i..], "else ");
             i += 5;
-            std.mem.copyForwards(u8, buffer[i..], alternative_str);
+            std.mem.copyForwards(u8, buffer[i..], alternative_str.?);
         }
         return buffer;
     }
