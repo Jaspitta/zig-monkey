@@ -65,7 +65,7 @@ const BlockStatement = struct {
                 capacity = capacity * 2;
                 const ext_buffer = self.allocator.alloc(u8, capacity) catch return "";
                 std.mem.copyForwards(u8, ext_buffer, buffer);
-                self.allocator.destroy(buffer);
+                self.allocator.free(buffer);
                 buffer = ext_buffer;
             }
             std.mem.copyForwards(u8, buffer[length..], statement_str);
