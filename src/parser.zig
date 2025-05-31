@@ -177,23 +177,23 @@ pub const Parser = struct {
     }
 };
 
-// TODO: much of these tests could be cleaned up with some extra utility functions,
-// but I do not care right now, for the time being it is faster to copy paste
-//
-// I am already regretting it...
 test {
-    // const input = "if (x < y) { x }";
-    // const lexer = lxr.Lexer.init(input);
-    //
-    // const a_alloc = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    // const g_alloc = a_alloc.allocator();
-    // defer a_alloc.deinit();
-    //
-    // const parser = try Parser.init(lexer, g_alloc);
-    // const program = try parser.parseProgram();
-    //
-    // std.testing.expect(program.statements.items.len == 1);
-    // const if_expression = program.statements.items[0].expression_statement.expression.if_expression;
+    const input = "if (x < y) { x }";
+    const lexer = lxr.Lexer.init(input);
+
+    var a_alloc = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer a_alloc.deinit();
+    const g_alloc = a_alloc.allocator();
+
+    var parser = try Parser.init(lexer, g_alloc);
+    const program = try parser.parseProgram();
+
+    try std.testing.expect(program.statements.items.len == 1);
+    const if_expression = program.statements.items[0].expression_statement.expression.if_expression;
+    try testInfixExpression(if_expression.condition.*, []const u8, "x", "<", []const u8, "y");
+    try std.testing.expect(if_expression.consequence.statements.len == 1);
+    try testIdentifier(if_expression.consequence.statements[0].expression_statement.expression, "x");
+    try std.testing.expect(if_expression.alternative == null);
 }
 
 test {
@@ -613,31 +613,31 @@ fn testLetStatement(stmnt: ast.Statement, expect: []const u8) !void {
     // try std.testing.expect(std.mem.eql(u8, stmnt.letStatement.token.let, expect));
 }
 
-fn testLiteralExp(comptime T: type, literal_exp: ast.Expression, value: T) !bool {
-    switch (ast.Expression) {
-        .identifier => testIdentifier(literal_exp, value),
-        .integer_literal => testIntLiteral(literal_exp, value),
-        .boolean => testBoolLiteral(literal_exp, value),
-        else => std.testing.expect(false),
+fn testLiteralExp(comptime T: type, literal_exp: ast.Expression, value: T) !void {
+    switch (literal_exp) {
+        .identifier => if (T != []const u8) try std.testing.expect(false) else try testIdentifier(literal_exp, value),
+        .integer_literal => if (T != u64) try std.testing.expect(false) else try testIntLiteral(literal_exp, value),
+        .boolean => if (T != bool) try std.testing.expect(false) else try testBoolLiteral(literal_exp, value),
+        else => try std.testing.expect(false),
     }
 }
 
-fn testBoolLiteral(boolean_exp: ast.Expression, value: bool) !bool {
-    std.testing.expect(boolean_exp.boolean.value == value);
+fn testBoolLiteral(boolean_exp: ast.Expression, value: bool) !void {
+    try std.testing.expect(boolean_exp.boolean.value == value);
 }
 
-fn testInfixExpression(infix_exp: ast.Expression, comptime left_T: type, left: left_T, operator: []const u8, comptime right_T: type, right: right_T) !bool {
-    testLiteralExp(left_T, infix_exp.infix_expression.left.tokenLiteral(), left);
-    testLiteralExp(@TypeOf([]const u8), infix_exp.infix_expression.tokenLiteral(), operator);
-    testLiteralExp(right_T, infix_exp.infix_expression.right, right);
+fn testInfixExpression(infix_exp: ast.Expression, comptime left_T: type, left: left_T, operator: []const u8, comptime right_T: type, right: right_T) !void {
+    try testLiteralExp(left_T, infix_exp.infix_expression.left.*, left);
+    try std.testing.expect(std.mem.eql(u8, infix_exp.tokenLiteral(), operator));
+    try testLiteralExp(right_T, infix_exp.infix_expression.right.*, right);
 }
 
-fn testIdentifier(identifier_exp: ast.Expression, value: []const u8) !bool {
-    std.testing.expect(std.mem.eql(u8, identifier_exp.identifier.tokenLiteral(), value));
+fn testIdentifier(identifier_exp: ast.Expression, value: []const u8) !void {
+    try std.testing.expect(std.mem.eql(u8, identifier_exp.identifier.tokenLiteral(), value));
 }
 
-fn testIntLiteral(int_literal: ast.Expression, value: u64) !bool {
-    std.testing.expect(int_literal.integer_literal.value == value);
+fn testIntLiteral(int_literal: ast.Expression, value: u64) !void {
+    try std.testing.expect(int_literal.integer_literal.value == value);
 }
 
 fn checkParseErrors(parser: Parser) !void {
