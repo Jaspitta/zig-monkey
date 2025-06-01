@@ -45,9 +45,9 @@ pub const Statement = union(enum) {
     }
 };
 
-const BlockStatement = struct {
+pub const BlockStatement = struct {
     token: tkz.Token,
-    statements: []Statement,
+    statements: std.ArrayList(Statement),
     allocator: std.mem.Allocator,
 
     fn tokenLiteral(self: BlockStatement) []const u8 {
@@ -59,7 +59,7 @@ const BlockStatement = struct {
         var length: usize = 0;
 
         var buffer = self.allocator.alloc(u8, capacity) catch return "";
-        for (self.statements) |statement| {
+        for (self.statements.items) |statement| {
             const statement_str = statement.toStr();
             if (length + statement_str.len > capacity) {
                 capacity = capacity * 2;

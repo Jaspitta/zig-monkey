@@ -121,6 +121,7 @@ pub const Token = union(TokenTag) {
             .true,
             .false,
             .lparent,
+            .@"if",
             => return true,
             else => return false,
         };
@@ -173,6 +174,27 @@ pub const Token = union(TokenTag) {
                 if (parser.expectPeek(TokenTag.rparent)) return exp;
 
                 return null;
+            },
+            .@"if" => {
+                var expression = ast.IfExpression{
+                    .token = undefined,
+                    .condition = undefined,
+                    .consequence = undefined,
+                    .alternative = null,
+                    .allocator = parser.allocator,
+                };
+
+                if (!parser.expectPeek(TokenTag.lparent)) return null;
+
+                parser.nextToken();
+                var condition = parser.parseExpression(prs.Parser.ExpTypes.LOWEST) orelse return null;
+                expression.condition = &condition;
+
+                if (!parser.expectPeek(TokenTag.rparent)) return null;
+                if (!parser.expectPeek(TokenTag.lbrace)) return null;
+
+                expression.consequence = try parser.parseBlockStatement();
+                return ast.Expression{ .if_expression = expression };
             },
             else => return null,
         };

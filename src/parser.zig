@@ -141,6 +141,29 @@ pub const Parser = struct {
         return stmnt;
     }
 
+    pub fn parseBlockStatement(self: *Parser) !ast.BlockStatement {
+        var block = ast.BlockStatement{
+            .token = self.curToken,
+            .statements = undefined,
+            .allocator = self.allocator,
+        };
+
+        block.statements = std.ArrayList(ast.Statement).init(block.allocator);
+
+        self.nextToken();
+
+        while (!self.curTokenIs(tkz.TokenTag.rbrace) and !self.curTokenIs(tkz.TokenTag.eof)) {
+            const cur_stmnt = self.parseStatement() orelse {
+                self.nextToken();
+                continue;
+            };
+            try block.statements.append(cur_stmnt);
+            self.nextToken();
+        }
+
+        return block;
+    }
+
     fn curTokenIs(self: Parser, tokenTag: tkz.TokenTag) bool {
         const actualEnum: tkz.TokenTag = @enumFromInt(@intFromEnum(self.curToken));
         return actualEnum == tokenTag;
@@ -189,10 +212,12 @@ test {
     const program = try parser.parseProgram();
 
     try std.testing.expect(program.statements.items.len == 1);
+
     const if_expression = program.statements.items[0].expression_statement.expression.if_expression;
     try testInfixExpression(if_expression.condition.*, []const u8, "x", "<", []const u8, "y");
-    try std.testing.expect(if_expression.consequence.statements.len == 1);
-    try testIdentifier(if_expression.consequence.statements[0].expression_statement.expression, "x");
+
+    try std.testing.expect(if_expression.consequence.statements.items.len == 1);
+    try testIdentifier(if_expression.consequence.statements.items[0].expression_statement.expression, "x");
     try std.testing.expect(if_expression.alternative == null);
 }
 
