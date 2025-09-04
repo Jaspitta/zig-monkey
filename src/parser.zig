@@ -169,7 +169,7 @@ pub const Parser = struct {
         return actualEnum == tokenTag;
     }
 
-    fn peekTokenIs(self: Parser, tokenTag: tkz.TokenTag) bool {
+    pub fn peekTokenIs(self: Parser, tokenTag: tkz.TokenTag) bool {
         const actualEnum: tkz.TokenTag = @enumFromInt(@intFromEnum(self.peekToken));
         return actualEnum == tokenTag;
     }
@@ -199,6 +199,27 @@ pub const Parser = struct {
         return self.curToken.precedence();
     }
 };
+
+test {
+    const input = "if (x < y) { x } else { y }";
+    const lexer = lxr.Lexer.init(input);
+
+    var a_alloc = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer a_alloc.deinit();
+    const g_alloc = a_alloc.allocator();
+
+    var parser = try Parser.init(lexer, g_alloc);
+    const program = try parser.parseProgram();
+
+    try std.testing.expect(program.statements.items.len == 1);
+
+    const if_expression = program.statements.items[0].expression_statement.expression.if_expression;
+    try testInfixExpression(if_expression.condition.*, []const u8, "x", "<", []const u8, "y");
+
+    try std.testing.expect(if_expression.consequence.statements.items.len == 1);
+    try testIdentifier(if_expression.consequence.statements.items[0].expression_statement.expression, "x");
+    try std.testing.expect(if_expression.alternative != null);
+}
 
 test {
     const input = "if (x < y) { x }";

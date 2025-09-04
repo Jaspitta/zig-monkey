@@ -93,6 +93,7 @@ pub const Expression = union(enum) {
     infix_expression: InfixExpression,
     boolean: Boolean,
     if_expression: IfExpression,
+    function_literal: FunctionLiteral,
 
     pub fn tokenLiteral(self: Expression) []const u8 {
         switch (self) {
@@ -104,6 +105,56 @@ pub const Expression = union(enum) {
         switch (self) {
             inline else => |case| return case.toStr(),
         }
+    }
+};
+
+pub const FunctionLiteral = struct {
+    token: tkz.Token,
+    parameters: ?std.ArrayList(Identifier),
+    body: BlockStatement,
+    allocator: std.mem.Allocator,
+
+    pub fn tokenLiteral(self: FunctionLiteral) []const u8 {
+        return self.token.literal();
+    }
+
+    pub fn toStr(self: FunctionLiteral) []const u8 {
+        const token_str = self.token.literal();
+        const token_body = self.body.toStr();
+        const par_size = size: {
+            if (self.parameters == null) break :size 0;
+
+            var size: u32 = 0;
+            for (self.parameters.?.items) |param| {
+                size += @intCast(param.toStr().len);
+                size += 2;
+            }
+
+            // ignore last ", "
+            size = size - 2;
+
+            break :size size;
+        };
+
+        var resp = self.allocator.alloc(u8, token_str.len + token_body.len + par_size + 3) catch {
+            return "";
+        };
+        var i: u32 = 0;
+        std.mem.copyForwards(u8, resp[i..], token_str);
+        i += @intCast(token_str.len);
+        resp[i] = '(';
+        i += 1;
+        if (self.parameters != null) {
+            for (self.parameters.?.items) |param| {
+                std.mem.copyForwards(u8, resp[i..], param.toStr());
+                i += @intCast(param.toStr().len);
+            }
+        }
+        resp[i] = ')';
+        resp[i + 1] = ' ';
+        i += 2;
+        std.mem.copyForwards(u8, resp[i..], token_body);
+        return resp;
     }
 };
 

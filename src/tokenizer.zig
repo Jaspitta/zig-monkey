@@ -139,8 +139,6 @@ pub const Token = union(TokenTag) {
                     return null;
                 };
 
-                // the first 5 in 5+5;
-                // the second 5 in 5+5;
                 lit.integer_literal.value = int;
                 return lit;
             },
@@ -148,7 +146,6 @@ pub const Token = union(TokenTag) {
                 var expr = ast.Expression{
                     .prefix_expression = ast.PrefixExpression{
                         .token = parser.curToken,
-                        // .operator = parser.curToken.literal(),
                         .right = undefined,
                         .allocator = parser.allocator,
                     },
@@ -194,6 +191,14 @@ pub const Token = union(TokenTag) {
                 if (!parser.expectPeek(TokenTag.lbrace)) return null;
 
                 expression.consequence = try parser.parseBlockStatement();
+
+                if (parser.peekTokenIs(TokenTag.@"else")) {
+                    parser.nextToken();
+                    if (!parser.expectPeek(TokenTag.lbrace)) return null;
+
+                    expression.alternative = try parser.parseBlockStatement();
+                }
+
                 return ast.Expression{ .if_expression = expression };
             },
             else => return null,
